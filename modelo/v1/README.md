@@ -1,6 +1,8 @@
-# Modelo financiero de maquila CIE–PERG
+# Modelo financiero de maquila CIE–PERG — versión 1 (detallada, conservada para comparación)
 
-Libro principal: `../Modelo_Financiero_Maquila_CIE_PERG.xlsx` (editable, con fórmulas vinculadas, sin macros ni vínculos externos).
+> Reemplazada por la plantilla común v2 (`../plantilla/`, libro `../../Modelo_Maquila_ECOSTAR_v2.xlsx`). Se conserva sin cambios de cálculo.
+
+Libro: `../../versiones/v1_Modelo_Financiero_Maquila_CIE_PERG_detallado.xlsx` (editable, con fórmulas vinculadas, sin macros ni vínculos externos).
 
 Base documental: plan «Procesamiento de chapas para gabinetes metálicos – Empresas CIE-PERG» (Mujica & Saldivar, actualizado a octubre de 2025) e informe de validación del 29/09/2026. No se suministraron datos reales posteriores al plan: el libro **no** representa la situación de 2026.
 
