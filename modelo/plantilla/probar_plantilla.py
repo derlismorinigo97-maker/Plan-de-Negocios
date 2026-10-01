@@ -71,7 +71,7 @@ for name,out,j in outs:
         k=ws.cell(r,1).value
         if isinstance(k,str) and "." in k: rows[k]=[ws.cell(r,FC+m-1).value for m in range(1,145)]
     k=wb["Resultados"]; kp={}
-    for r in range(6,28):
+    for r in range(6,40):
         if k.cell(r,2).value: kp[k.cell(r,2).value]=(k.cell(r,3).value,k.cell(r,4).value)
     ctl=[(wb["Control"].cell(r,2).value,wb["Control"].cell(r,3).value,wb["Control"].cell(r,5).value) for r in range(5,22) if wb["Control"].cell(r,5).value]
     R[name]=dict(err=j.get("total_errors"),rows=rows,kpi=kp,ctl=ctl)

@@ -701,7 +701,33 @@ def build_inversion():
                 nm(f"P_L{j + 1}_{k}", "Inversion", f"{CL(co)}{r}")
                 nm(f"V_L{j + 1}_{k}", "Inversion", f"{CL(cv)}{r}")
         r += 1
-    put(ws, r, 2, "Crédito rotativo de corto plazo o devolución a un socio: cargarlo como préstamo con su cronograma.", font=F_S)
+    put(ws, r, 2, "Préstamo de corto plazo con cronograma (p. ej. 12 cuotas o pago único): cargarlo como préstamo 2 o 3.", font=F_S)
+    r += 2
+    section(ws, r, "B2. Línea de crédito rotativa de corto plazo (capital de trabajo): se usa solo si la caja cae bajo el mínimo y se devuelve con el excedente", 21); r += 1
+    header(ws, r, ["", "Condición", "Unidad", "Presupuesto", "Vigente", "Nota"], 1, 30)
+    ws.merge_cells(start_row=r, start_column=6, end_row=r, end_column=14)
+    r += 1
+    lc = D.get("linea", {})
+    for k, lab, unit, fmt, note in [("Lim", "Límite aprobado", "USD", NF_USD, "0 o vacío = sin línea."),
+                                    ("Tasa", "Tasa nominal anual (interés mensual sobre el saldo usado)", "%", NF_PCT2, "Más IVA sobre intereses (Supuestos G24)."),
+                                    ("Desde", "Disponible desde el mes", "mes", NF_N, "Vacío = desde el mes 1."),
+                                    ("Hasta", "Vencimiento: último mes de uso (luego se cancela el saldo)", "mes", NF_N,
+                                     "Vacío = fin del horizonte. Al vencer se paga todo el saldo aunque falte caja (riesgo de renovación).")]:
+        put(ws, r, 2, lab)
+        put(ws, r, 3, unit)
+        inp(ws, r, 4, lc.get(k), fmt)
+        inh(ws, r, 5, f"=D{r}", fmt)
+        put(ws, r, 6, note, font=F_S)
+        nm(f"P_LC_{k}", "Inversion", f"D{r}")
+        nm(f"V_LC_{k}", "Inversion", f"E{r}")
+        r += 1
+    put(ws, r, 2, "Saldo utilizado de la línea al último mes cerrado (solo vigente)")
+    put(ws, r, 3, "USD")
+    inp(ws, r, 5, None, NF_USD)
+    put(ws, r, 6, "Los usos y devoluciones reales se cargan en Reales (desembolsos / amortización); aquí solo el saldo al corte.", font=F_S)
+    nm("V_LC_Saldo0", "Inversion", f"E{r}")
+    r += 1
+    put(ws, r, 2, "Los dividendos solo se pagan con caja sobre el mínimo después de devolver la línea.", font=F_S)
     r += 2
     section(ws, r, "C. Aportes de socios (efectivo o especie)", 21); r += 1
     header(ws, r, ["#", "Concepto", "Mes — presupuesto", "Monto — presupuesto", "Mes — vigente", "Monto — vigente", "Nota"], 1, 30)
@@ -744,9 +770,9 @@ REAL_ROWS = [
     ("TRIB", "Tributo de maquila", "mon"),
     ("sec", "Inversión y financiamiento (movimientos de caja)"),
     ("CAPEX", "CAPEX pagado", "mon"),
-    ("DESEMB", "Desembolsos de préstamos recibidos", "mon"),
+    ("DESEMB", "Desembolsos de préstamos recibidos (incluye línea rotativa)", "mon"),
     ("INT", "Intereses, IVA y comisiones pagados", "mon"),
-    ("AMORT", "Amortización de préstamos pagada", "mon"),
+    ("AMORT", "Amortización de préstamos pagada (incluye devoluciones de la línea)", "mon"),
     ("APORTE", "Aportes de socios recibidos", "mon"),
     ("DIV", "Dividendos pagados", "mon"),
     ("sec", "Saldos al cierre del mes (obligatorio en el último mes cerrado)"),
@@ -931,7 +957,7 @@ def version_rows(X):
          NF_USD, "sum"),
         ("EBIT", "EBIT", "USD", lambda m: f"={a('EBITDA', m)}-{a('DEP', m)}", NF_USD, "sum"),
         ("INT", "Intereses, IVA y comisiones", "USD",
-         lambda m: R("INT", m, f"({a('L1_int', m)}+{a('L2_int', m)}+{a('L3_int', m)})*(1+{X}_IVAint)"), NF_USD, "sum"),
+         lambda m: R("INT", m, f"({a('L1_int', m)}+{a('L2_int', m)}+{a('L3_int', m)}+{a('LCI', m)})*(1+{X}_IVAint)"), NF_USD, "sum"),
         ("IRE", "Impuesto a la renta", "USD", lambda m: f"={X}_IRE*({a('EBIT', m)}-{a('INT', m)})", NF_USD, "sum"),
         ("NI", "RESULTADO NETO", "USD", lambda m: f"={a('EBIT', m)}-{a('INT', m)}-{a('IRE', m)}", NF_USD, "sum", True),
     ]
@@ -986,32 +1012,55 @@ def version_rows(X):
              lambda m, L=L, kk=kk, j=j: f"=IF({kk(m)}<1,0,IF({kk(m)}=1,N({L}_Monto),{prv(K(f'L{j}_sal'), m)})-{a(f'L{j}_am', m)})", NF_USD, "last"),
         ]
     rows.append(("sec", "Financiamiento y tesorería"))
+    LC = f"{X}_LC"
+    zr = (lambda m, f: f"=IF({A('real', m)}=1,0,{f})") if real else (lambda m, f: f"={f}")
     rows += [
-        ("DESEMB", "Desembolsos de préstamos", "USD", lambda m: R("DESEMB", m, f"{a('L1_des', m)}+{a('L2_des', m)}+{a('L3_des', m)}"), NF_USD, "sum"),
-        ("AMORT", "Amortización de préstamos", "USD",
-         lambda m: R("AMORT", m, f"MIN({prv(K('DEUDA'), m)}+{a('DESEMB', m)},{a('L1_am', m)}+{a('L2_am', m)}+{a('L3_am', m)})"), NF_USD, "sum"),
-        ("DEUDA", "DEUDA FINANCIERA (saldo)", "USD", lambda m: f"={prv(K('DEUDA'), m)}+{a('DESEMB', m)}-{a('AMORT', m)}", NF_USD, "max", True),
+        ("DESL", "Desembolsos de préstamos", "USD", lambda m: R("DESEMB", m, f"{a('L1_des', m)}+{a('L2_des', m)}+{a('L3_des', m)}"), NF_USD, "sum"),
+        ("AML", "Amortización de préstamos (cronograma)", "USD",
+         lambda m: R("AMORT", m, f"MAX(0,MIN({prv(K('DEUDA'), m)}-{prv(K('LCS'), m)}+{a('DESL', m)},{a('L1_am', m)}+{a('L2_am', m)}+{a('L3_am', m)}))"),
+         NF_USD, "sum"),
         ("APORTE", "Aportes de socios", "USD", lambda m: R("APORTE", m, f"SUMIF(Ap_Mes{O},{m},Ap_Monto{O})*{hor(m)}"), NF_USD, "sum"),
-        ("CAJA0", "Caja antes de dividendos", "USD",
-         lambda m: (f"={prv(K('CAJA'), m)}+{a('CFO', m)}-{a('CAPEX', m)}+{a('DESEMB', m)}-{a('AMORT', m)}-{a('INT', m)}*{hor(m)}+{a('APORTE', m)}"), NF_USD, "min"),
+        ("LCA", "Línea rotativa disponible (1/0)", "1/0",
+         lambda m: f"=IF(AND(N({LC}_Lim)>0,{m}>=MAX(1,N({LC}_Desde)),{m}<=IF(N({LC}_Hasta)=0,Fin,N({LC}_Hasta))),1,0)", NF_N, None),
+        ("LCI", "Línea rotativa: interés del mes (sobre el saldo anterior)", "USD",
+         lambda m: zr(m, f"{prv(K('LCS'), m)}*N({LC}_Tasa)/12*{hor(m)}"), NF_USD, "sum"),
+        ("CAJA0", "Caja antes de línea rotativa y dividendos", "USD",
+         lambda m: (f"={prv(K('CAJA'), m)}+{a('CFO', m)}-{a('CAPEX', m)}+{a('DESL', m)}-{a('AML', m)}-{a('INT', m)}*{hor(m)}+{a('APORTE', m)}"), NF_USD, "min"),
         ("CMIN", "Caja mínima operativa", "USD", lambda m: f"={a('vtas', m)}*{X}_CajaMin/DiasMes*{hor(m)}", NF_USD, None),
+        ("LCD", "Línea rotativa: uso", "USD",
+         lambda m: zr(m, f"IF({a('LCA', m)}=1,MIN(MAX(0,N({LC}_Lim)-{prv(K('LCS'), m)}),MAX(0,{a('CMIN', m)}-{a('CAJA0', m)})),0)*{hor(m)}"), NF_USD, "sum"),
+        ("LCR", "Línea rotativa: devolución (con excedente; total al vencer)", "USD",
+         lambda m: zr(m, f"IF({a('LCA', m)}=1,MIN({prv(K('LCS'), m)},MAX(0,{a('CAJA0', m)}-{a('CMIN', m)})),{prv(K('LCS'), m)})*{hor(m)}"), NF_USD, "sum"),
+        ("LCS", "Línea rotativa: saldo", "USD",
+         lambda m: (f"=IF({A('real', m)}=1,IF({m}=Corte,N(V_LC_Saldo0),0),{prv(K('LCS'), m)}+{a('LCD', m)}-{a('LCR', m)})" if real
+                    else f"={prv(K('LCS'), m)}+{a('LCD', m)}-{a('LCR', m)}"), NF_USD, "max"),
+        ("DESEMB", "DESEMBOLSOS TOTALES (préstamos + línea)", "USD", lambda m: f"={a('DESL', m)}+{a('LCD', m)}", NF_USD, "sum"),
+        ("AMORT", "AMORTIZACIONES TOTALES (préstamos + línea)", "USD", lambda m: f"={a('AML', m)}+{a('LCR', m)}", NF_USD, "sum"),
+        ("DEUDA", "DEUDA FINANCIERA (saldo)", "USD", lambda m: f"={prv(K('DEUDA'), m)}+{a('DESEMB', m)}-{a('AMORT', m)}", NF_USD, "max", True),
+        ("CAJA1", "Caja después de la línea rotativa", "USD", lambda m: f"={a('CAJA0', m)}+{a('LCD', m)}-{a('LCR', m)}", NF_USD, "min"),
+        ("NIY", "Resultado neto acumulado del año", "USD",
+         lambda m: f"=IF({A('mes', m)}=1,{a('NI', m)},{prv(K('NIY'), m)}+{a('NI', m)})", NF_USD, None),
+        ("NIP", "Resultado neto del año anterior", "USD",
+         lambda m: "=0" if m == 1 else f"=IF({A('mes', m)}=1,{prv(K('NIY'), m)},{prv(K('NIP'), m)})", NF_USD, None),
         ("DIVD", "Dividendos según política (resultado del año anterior)", "USD",
          lambda m: (f"=IF(AND({A('mes', m)}=MAX(1,{X}_MesDiv),{A('anio', m)}>=2),INDEX(Payout_{O},1,MIN({NY},{A('anio', m)}-1))"
-                    f"*MAX(0,SUMIFS({RG(K('NI'))},{RG('anio')},{A('anio', m)}-1)),0)*{hor(m)}"), NF_USD, "sum"),
+                    f"*MAX(0,{a('NIP', m)}),0)*{hor(m)}"), NF_USD, "sum"),
         ("DIV", "Dividendos pagados (solo con caja sobre el mínimo)", "USD",
-         lambda m: R("DIV", m, f"MIN({a('DIVD', m)},MAX(0,{a('CAJA0', m)}-{a('CMIN', m)}))"), NF_USD, "sum"),
+         lambda m: R("DIV", m, f"MIN({a('DIVD', m)},MAX(0,{a('CAJA1', m)}-{a('CMIN', m)}))"), NF_USD, "sum"),
         ("CAJA", "CAJA FINAL", "USD",
-         lambda m: (f"=IF(AND({A('real', m)}=1,{rgiven('S_CAJA', m)}),{rv('S_CAJA', m)},{a('CAJA0', m)}-{a('DIV', m)})" if real
-                    else f"={a('CAJA0', m)}-{a('DIV', m)}"), NF_USD, "min", True),
-        ("AJ", "Ajuste de conciliación con la caja real", "USD", lambda m: f"={a('CAJA', m)}-({a('CAJA0', m)}-{a('DIV', m)})", NF_USD, "sum"),
+         lambda m: (f"=IF(AND({A('real', m)}=1,{rgiven('S_CAJA', m)}),{rv('S_CAJA', m)},{a('CAJA1', m)}-{a('DIV', m)})" if real
+                    else f"={a('CAJA1', m)}-{a('DIV', m)}"), NF_USD, "min", True),
+        ("AJ", "Ajuste de conciliación con la caja real", "USD", lambda m: f"={a('CAJA', m)}-({a('CAJA1', m)}-{a('DIV', m)})", NF_USD, "sum"),
         ("BRECHA", "Brecha: caja por debajo de la caja mínima", "USD", lambda m: f"=MAX(0,{a('CMIN', m)}-{a('CAJA', m)})*{hor(m)}", NF_USD, "max", True),
+        ("DEF", "Caja negativa a cubrir por los socios (aporte implícito acumulado)", "USD", lambda m: f"=MAX(0,-{a('CAJA', m)})", NF_USD, "max"),
     ]
     rows.append(("sec", "Valuación y control"))
     rows += [
         ("DFP", "Factor de descuento del proyecto", "", lambda m: f"=1/(1+{X}_WACC)^(({m}-1)/12)", NF_USD4, None),
         ("DFE", "Factor de descuento de los socios", "", lambda m: f"=1/(1+{X}_Ke)^(({m}-1)/12)", NF_USD4, None),
-        ("EQ", "Flujo de los socios (-aportes + dividendos + valor final)", "USD",
-         lambda m: f"=-{a('APORTE', m)}+{a('DIV', m)}+IF({m}=Fin,{a('CAJA', m)}+{a('VT', m)}-{a('DEUDA', m)},0)", NF_USD, "sum"),
+        ("EQ", "Flujo de los socios (-aportes - cobertura de caja negativa + dividendos + valor final)", "USD",
+         lambda m: (f"=-{a('APORTE', m)}-({a('DEF', m)}-{prv(K('DEF'), m)})+{a('DIV', m)}"
+                    f"+IF({m}=Fin,{a('CAJA', m)}+{a('DEF', m)}+{a('VT', m)}-{a('DEUDA', m)},0)"), NF_USD, "sum"),
         ("CUMF", "FCFF acumulado", "USD", lambda m: f"={prv(K('CUMF'), m)}+{a('FCFF', m)}", NF_USD, "last"),
         ("PB", "Recupero de la inversión (mes con interpolación)", "mes",
          lambda m: "=0" if m == 1 else f"=IF(AND({prv(K('CUMF'), m)}<0,{a('CUMF', m)}>=0),{m - 2}+(-{prv(K('CUMF'), m)})/{a('FCFF', m)},0)", NF_USD2, "max"),
@@ -1124,7 +1173,7 @@ def build_resultados():
     def irr(X, k):
         rg = g(X, k)
         return (f'IF(COUNTIF({rg},"<0")=0,"No existe",IF(COUNTIF({rg},">0")=0,"No existe",'
-                f'IFERROR((1+IRR({rg},0.01))^12-1,"No converge")))')
+                f'IFERROR((1+IRR({rg},0.01))^12-1,IFERROR((1+IRR({rg},-0.01))^12-1,"No converge"))))')
 
     kpis = [
         ("v1", "Ventas del año 1 del modelo", lambda X: f"=SUMIFS({g(X, 'vtas')},{YR},1)", NF_USD, ""),
@@ -1138,14 +1187,23 @@ def build_resultados():
          "Inversión + capital de trabajo + pérdidas iniciales que deben financiar socios y bancos."),
         ("necm", "Mes de la necesidad máxima", lambda X: f'=IF(MIN({g(X, "CUML")})>=0,"",MATCH(MIN({g(X, "CUML")}),{g(X, "CUML")},0))', NF_N, ""),
         ("ap", "Aportes de socios", lambda X: f"={tot(X, 'APORTE')}", NF_USD, ""),
-        ("deuda", "Deuda financiera máxima", lambda X: f"={tot(X, 'DEUDA')}", NF_USD, ""),
+        ("apimp", "Aporte adicional necesario para no tener caja negativa", lambda X: f"={tot(X, 'DEF')}", NF_USD,
+         "Fondos no previstos que deberían aportar socios o bancos (máximo saldo de caja negativa)."),
+        ("deuda", "Deuda financiera máxima", lambda X: f"={tot(X, 'DEUDA')}", NF_USD, "Préstamos + línea rotativa."),
+        ("lcmax", "Línea rotativa: uso máximo", lambda X: f"={tot(X, 'LCS')}", NF_USD, "0 = no se usó o no hay línea."),
+        ("intt", "Intereses, IVA y comisiones totales", lambda X: f"={tot(X, 'INT')}", NF_USD, ""),
+        ("canc", "Cancelación total de la deuda (años desde el mes 1)",
+         lambda X: (f'=IF(MAX({g(X, "DEUDA")})<1,"Sin deuda",IF(INDEX({g(X, "DEUDA")},1,MIN({N},Fin))>1,"No cancela en el horizonte",'
+                    f'(_xlfn.MAXIFS(Calculo!{RG("m")},{g(X, "DEUDA")},">1")+1)/12))'), NF_USD2, "Último mes con saldo de deuda + 1, en años."),
         ("cajamin", "Caja final mínima del horizonte", lambda X: f"=MIN({g(X, 'CAJA')})", NF_USD, "Negativa = financiamiento no previsto."),
         ("brecha", "Brecha máxima bajo la caja mínima", lambda X: f"={tot(X, 'BRECHA')}", NF_USD, "No se insertan fondos ficticios: la brecha queda visible."),
         ("brechan", "Meses con brecha", lambda X: f'=COUNTIF({g(X, "BRECHA")},">0.5")', NF_N, ""),
-        ("dscr", "DSCR mínimo (flujo operativo / servicio de deuda, anual)", None, NF_X, "Años con servicio de deuda > USD 1. El año 1 incluye la inversión en capital de trabajo."),
+        ("dscr", "DSCR mínimo desde el 2.º año de operación (flujo operativo / servicio de deuda)", None, NF_X,
+         "Servicio = intereses + cuotas de préstamos (sin devoluciones de la línea). < 1 = la operación no alcanza a pagar la deuda ese año."),
         ("van", "VAN del proyecto (FCFF a WACC)", lambda X: f"=SUMPRODUCT({g(X, 'FCFF')},{g(X, 'DFP')})", NF_USD, "Excluye préstamos, intereses, aportes y dividendos."),
         ("tir", "TIR del proyecto (anual)", lambda X: "=" + irr(X, "FCFF"), NF_PCT2, ""),
-        ("vane", "VAN de los socios (a Ke)", lambda X: f"=SUMPRODUCT({g(X, 'EQ')},{g(X, 'DFE')})", NF_USD, "Aportes, dividendos pagados y valor final."),
+        ("vane", "VAN de los socios (a Ke)", lambda X: f"=SUMPRODUCT({g(X, 'EQ')},{g(X, 'DFE')})", NF_USD,
+         "Aportes, dividendos pagados y valor final. La caja negativa se considera cubierta por los socios hasta que se recupera."),
         ("tire", "TIR de los socios (anual)", lambda X: "=" + irr(X, "EQ"), NF_PCT2, ""),
         ("pb", "Recupero de la inversión del proyecto (años)", lambda X: f'=IF(MAX({g(X, "PB")})=0,"No recupera",MAX({g(X, "PB")})/12)', NF_USD2, ""),
         ("chk", "Balance de control (0 = OK)", lambda X: f"={tot(X, 'CHK')}", NF_USD2, ""),
@@ -1214,15 +1272,17 @@ def build_resultados():
              ("V_IRE", "Impuesto a la renta", "IRE", "sum", False), ("V_NI", "Resultado neto", "NI", "sum", True),
              ("V_CFO", "Flujo operativo", "CFO", "sum", True), ("V_CAPEX", "CAPEX pagado", "CAPEX", "sum", False), ("V_FCFF", "FCFF (incluye valor terminal)", "FCFF", "sum", True),
              ("V_APORTE", "Aportes de socios", "APORTE", "sum", False), ("V_DESEMB", "Desembolsos de préstamos", "DESEMB", "sum", False),
-             ("V_AMORT", "Amortizaciones", "AMORT", "sum", False), ("V_DIV", "Dividendos pagados", "DIV", "sum", False),
-             ("V_CAJA", "Caja al cierre", "CAJA", "end", True), ("V_DEUDA", "Deuda al cierre", "DEUDA", "end", False),
+             ("V_AMORT", "Amortizaciones (préstamos + línea)", "AMORT", "sum", False), ("V_AML", "   de las cuales: cuotas de préstamos", "AML", "sum", False),
+             ("V_DIV", "Dividendos pagados", "DIV", "sum", False),
+             ("V_CAJA", "Caja al cierre", "CAJA", "end", True), ("V_DEUDA", "Deuda al cierre", "DEUDA", "end", False), ("V_LCS", "   de la cual: línea rotativa", "LCS", "end", False),
              ("V_CTN", "Capital de trabajo neto al cierre", "ctn", "end", False), ("V_BRECHA", "Brecha máxima del año", "BRECHA", "max", False)]
     for key, lab, src, kind, bold in lines:
         r = arow(r, key, lab, "V", src, kind, bold=bold)
     r = arow(r, "V_mg", "Margen EBITDA", "V", lambda y, c: f'=IF({c}{RS["V_vtas"]}=0,"",{c}{RS["V_EBITDA"]}/{c}{RS["V_vtas"]})', "f", NF_PCT)
-    r = arow(r, "V_DS", "Servicio de deuda (intereses + amortización)", "V", lambda y, c: f"={c}{RS['V_INT']}+{c}{RS['V_AMORT']}", "f")
+    r = arow(r, "V_DS", "Servicio de deuda (intereses + amortización)", "V", lambda y, c: f"={c}{RS['V_INT']}+{c}{RS['V_AML']}", "f")
     r = arow(r, "V_DSCR", "DSCR (flujo operativo / servicio de deuda)", "V",
              lambda y, c: f'=IF({c}{RS["V_DS"]}>1,{c}{RS["V_CFO"]}/{c}{RS["V_DS"]},"")', "f", NF_X)
+    r = arow(r, "YN", "Año n° (auxiliar)", "V", lambda y, c: f"={y}", "f", NF_N)
     put(ws, r, 2, "Unidades vendidas por producto", font=F_B)
     r += 1
     for i in range(NP):
@@ -1233,11 +1293,12 @@ def build_resultados():
     for key, lab, src, kind, bold in [("P_vtas", "Ventas", "vtas", "sum", True), ("P_EBITDA", "EBITDA", "EBITDA", "sum", True), ("P_NI", "Resultado neto", "NI", "sum", True),
                                       ("P_CFO", "Flujo operativo", "CFO", "sum", False), ("P_CAPEX", "CAPEX", "CAPEX", "sum", False),
                                       ("P_FCFF", "FCFF (incluye valor terminal)", "FCFF", "sum", True), ("P_APORTE", "Aportes de socios", "APORTE", "sum", False),
-                                      ("P_INT", "Intereses, IVA y comisiones", "INT", "sum", False), ("P_AMORT", "Amortizaciones", "AMORT", "sum", False),
+                                      ("P_INT", "Intereses, IVA y comisiones", "INT", "sum", False), ("P_AMORT", "Amortizaciones (préstamos + línea)", "AMORT", "sum", False),
+                                      ("P_AML", "   de las cuales: cuotas de préstamos", "AML", "sum", False),
                                       ("P_CAJA", "Caja al cierre", "CAJA", "end", True), ("P_DEUDA", "Deuda al cierre", "DEUDA", "end", False),
                                       ("P_CTN", "Capital de trabajo neto al cierre", "ctn", "end", False)]:
         r = arow(r, key, lab, "P", src, kind, bold=bold)
-    r = arow(r, "P_DS", "Servicio de deuda", "P", lambda y, c: f"={c}{RS['P_INT']}+{c}{RS['P_AMORT']}", "f")
+    r = arow(r, "P_DS", "Servicio de deuda", "P", lambda y, c: f"={c}{RS['P_INT']}+{c}{RS['P_AML']}", "f")
     r = arow(r, "P_DSCR", "DSCR", "P", lambda y, c: f'=IF({c}{RS["P_DS"]}>1,{c}{RS["P_CFO"]}/{c}{RS["P_DS"]},"")', "f", NF_X)
     put(ws, r, 2, "Unidades vendidas por producto", font=F_B)
     r += 1
@@ -1281,7 +1342,8 @@ def build_resultados():
         r += 1
     # DSCR mínimo
     for col, k in [(3, "P_DSCR"), (4, "V_DSCR")]:
-        put(ws, RS["k_dscr"], col, f'=IF(COUNTIF(D{RS[k[0] + "_DS"]}:O{RS[k[0] + "_DS"]},">1")=0,"Sin deuda",_xlfn.MINIFS(D{RS[k]}:O{RS[k]},D{RS[k[0] + "_DS"]}:O{RS[k[0] + "_DS"]},">1"))',
+        crit = f'D{RS[k[0] + "_DS"]}:O{RS[k[0] + "_DS"]},">1",D{RS["YN"]}:O{RS["YN"]},">="&(ROUNDUP({k[0]}_Inicio/12,0)+1)'
+        put(ws, RS["k_dscr"], col, f'=IF(COUNTIFS({crit})=0,"Sin deuda",_xlfn.MINIFS(D{RS[k]}:O{RS[k]},{crit}))',
             fmt=NF_X, fill=FL_P if col == 3 else FL_V, font=F_B)
     add_charts(ws, r + 2)
     ws.freeze_panes = "C6"

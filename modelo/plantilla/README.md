@@ -22,7 +22,7 @@ Para generar el libro de otro negocio desde código, hay que crear `datos_<negoc
 | Puestos | 30 |
 | Costos fijos | 25 |
 | Ítems de CAPEX | 20 |
-| Préstamos | 3 |
+| Préstamos | 3, más una línea rotativa opcional |
 | Aportes | 10 |
 | Supuestos anuales | 10 años |
 
@@ -40,6 +40,16 @@ Para generar el libro de otro negocio desde código, hay que crear `datos_<negoc
   - Pasivo: proveedores y deuda.
   - Patrimonio: aportes, resultados y dividendos, más el ajuste de conciliación con la caja real.
 
+## Scripts de prueba
+
+```bash
+python3 probar_plantilla.py   libro.xlsx recalc.py carpeta   # reales congelados, TC, días, atraso, implantación
+python3 probar_escenarios.py  libro.xlsx recalc.py carpeta   # 36 escenarios (genera escenarios.pkl)
+python3 informe_escenarios.py carpeta/escenarios.pkl ../../Pruebas_Escenarios_ECOSTAR_v2.xlsx   # resumen y 385 verificaciones
+```
+
+`libro.xlsx` es el libro generado sin recalcular. `recalc.py` es el script de recálculo con LibreOffice headless.
+
 ## Pruebas realizadas (LibreOffice 24.2, 01/10/2026)
 
 | Caso | Resultado |
@@ -50,3 +60,4 @@ Para generar el libro de otro negocio desde código, hay que crear `datos_<negoc
 | Días de cobro 150 | EBITDA igual, capital de trabajo mayor, VAN menor. |
 | Conservador | Inicio atrasado 3 meses. CAPEX pendiente +10% (755.044 → 830.548). |
 | Implantación (inicio en el mes 7) | Personal parcial y costos «desde año 0» en los meses 1-6, ventas desde el mes 7, depreciación desde la puesta en servicio. |
+| Batería de 36 escenarios | 385/385 verificaciones OK. Detalle en `../../Pruebas_Escenarios_v2.md`. |

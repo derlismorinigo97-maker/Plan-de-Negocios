@@ -98,7 +98,7 @@ La lógica general es razonable, pero la información está dispersa y repetida,
 | Supuestos | Parámetros generales, supuestos por año (TC, variaciones de precio/costos/salarios, dividendos), escenarios y referencia del plan publicado. | Sí |
 | Productos | Hasta 12 productos: precio, materia prima, insumos y otros variables por unidad; capacidad y volúmenes por año. | Sí |
 | Costos | Hasta 30 puestos (clase, moneda, salario, dotación por año) y 25 costos fijos (moneda, crecimiento, año de inicio, IVA, base de imprevistos). | Sí |
-| Inversion | Hasta 20 ítems de CAPEX (presupuesto, ejecutado, pagado, comprometido, por contratar), 3 préstamos y 10 aportes. | Sí |
+| Inversion | Hasta 20 ítems de CAPEX (presupuesto, ejecutado, pagado, comprometido, por contratar), 3 préstamos, una línea rotativa y 10 aportes. | Sí |
 | Reales | Un dato por celda y por mes: TC, unidades y ventas por producto, 7 rubros de costo, CAPEX, financiamiento y saldos al cierre. | Sí (mensual) |
 | Calculo | Motor mensual de 144 meses. El bloque P (presupuesto) y el bloque V (vigente) usan las mismas fórmulas. | No |
 | Resultados | Indicadores, resumen anual vigente y presupuesto, desvíos, comparación con el plan publicado y gráficos. | No |
@@ -124,7 +124,7 @@ Principios de diseño:
 | Base_PDF con la reconstrucción de los cuadros 1-20 | Queda en la v1 conservada. La v2 compara contra el plan publicado (ventas, EBITDA, resultado, VAN, TIR) en Supuestos D y Resultados E. |
 | Capital de trabajo por cohortes (compras anticipadas, producto terminado en unidades, recuperos) | Capital de trabajo por días sobre el mes corriente. En el mes de corte se reemplaza por los saldos reales. |
 | 5 escenarios + 15 pruebas de sensibilidad + capturas | 3 escenarios (Vigente, Conservador, Optimista) con 8 ajustes editables. |
-| Línea de crédito hipotética y aportes automáticos | Eliminados: la brecha de caja se informa sin cubrirla. |
+| Línea de crédito hipotética y aportes automáticos | Sin aportes automáticos: la brecha queda visible. Línea rotativa opcional con límite, tasa y vencimiento (agregada tras las pruebas de escenarios). |
 | Valor terminal por liquidación o perpetuidad | Solo liquidación (capital de trabajo y activo fijo realizables, en %). |
 | Datos_Reales en tablas por tipo | Reales en una sola hoja, un dato por celda, con las mismas columnas de mes que el motor. |
 | 34 controles + 25 pruebas del motor | 16 controles de integridad, carga y consistencia. |
@@ -140,7 +140,7 @@ Supuestos de octubre de 2025, sin datos reales cargados (presupuesto = vigente).
 | EBITDA año 1 | 573.024 | 526.818 | 509.970 | Diferencia de período: en la v1 la producción del año 1 supera las ventas (12.411 vs 12.000 gabinetes), así que parte del costo queda en inventario hasta el año siguiente. En la v2 el costo se reconoce en el mes. |
 | VAN del proyecto (FCFF, 9,49%) | 4.588.736 (*) | 6.732.541 | 6.989.922 | Capital de trabajo máximo: v2 4,50 M frente a v1 4,94 M (por días y no por cohortes). |
 | TIR del proyecto | 22,61% (*) | 32,3% | 34,9% | |
-| VAN de los socios (Ke 16,32%) | — | 3.748.260 | 3.708.288 | |
+| VAN de los socios (Ke 16,32%) | — | 3.748.260 | 3.695.678 | La v2 cobra a Ke la caja negativa como aporte implícito de los socios. |
 | Brecha de caja máxima | — | 589.308 | 373.701 | Menor capital de trabajo en la v2. Los dividendos solo se pagan con caja disponible. |
 | Recupero de la inversión | — | 4,4 años | 4,1 años | |
 
@@ -149,7 +149,7 @@ Supuestos de octubre de 2025, sin datos reales cargados (presupuesto = vigente).
 Lectura financiera:
 
 - **Brecha de caja.** El financiamiento del plan cubre el total, pero no el momento: entre el año 3 y el 4 la caja cae por debajo del mínimo hasta en USD 374 mil y llega a ser negativa en USD 312 mil. Lo explica el capital de trabajo de 120 días de cobro y 120 de inventario.
-- **DSCR.** El DSCR del año 1 es negativo porque el flujo operativo absorbe USD 2,39 M de capital de trabajo.
+- **DSCR.** El DSCR del año 1 es negativo porque el flujo operativo absorbe USD 2,39 M de capital de trabajo. Desde el segundo año, el mínimo es 0,40: en los años 2 y 3 la operación no alcanza a pagar las cuotas.
 - **Peso del valor terminal.** Cerca de USD 1,8 M del VAN (26%) proviene de recuperar el capital de trabajo al final del horizonte.
 - **Vigencia de las cifras.** Usan supuestos de 2025 y no acreditan la situación actual.
 
@@ -180,7 +180,8 @@ Lectura financiera:
 - **Dividendos.** Se pagan en el mes indicado del año siguiente, como porcentaje del resultado. Si no hay caja sobre el mínimo, no se pagan y no se acumulan.
 - **Capital de trabajo.** Se calcula por días sobre el mes corriente. El inventario de materiales no incluye flete ni despacho (la v1 sí los incluía: corrección C5).
 - **Activo fijo.** El activo fijo neto sigue los pagos. Si hay CAPEX devengado y no pagado, se refleja al pagarse.
-- **Préstamos.** Hay tres préstamos con sistema francés y gracia. Las líneas rotativas de corto plazo (caso Alianza) se cargan como préstamo con cronograma, o en Reales para los meses cerrados.
+- **Préstamos.** Hay tres préstamos con sistema francés y gracia, y una línea rotativa opcional. La línea se usa solo si la caja cae bajo el mínimo y se devuelve con el excedente; al vencer se paga entera. Los usos reales de la línea se cargan en Reales, y su saldo al corte en Inversion.
+- **Caja negativa.** No se cubre con fondos ficticios: queda visible como brecha y como «aporte adicional necesario». En el VAN de los socios se trata como aporte implícito, que se devuelve cuando la caja se recupera. La caja positiva no genera intereses.
 - **Supuestos a verificar en Ecostar:**
   - tributo de maquila del 1% sobre ventas (según fuentes secundarias, la Ley 7547/2025 fijaría la base en el mayor entre el valor agregado nacional y la factura; pendiente de verificación en fuente oficial);
   - IVA de costos fijos no recuperable;
