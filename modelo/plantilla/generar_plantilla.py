@@ -89,6 +89,10 @@ WS = {s: wb.create_sheet(s) for s in SHEETS}
 CUR = [None]
 
 
+# Criterio: no usar decimales dentro de criterios de texto (COUNTIF(..., ">0.5")): Excel los interpreta según la
+# configuración regional (coma decimal en es-PY) y devuelve 0. Usar comparaciones numéricas (SUMPRODUCT(--(rango>0.5))).
+
+
 def nm(name, sheet, ref):
     """Nombre de libro: ref puede ser celda (D5) o rango (D5:M5)."""
     parts = ref.split(":")
@@ -524,7 +528,7 @@ def build_productos():
             vol = f"{CL(c)}{PR['vol_V'] + i}"
             cap = f"IF(AND(N($F{f + i})>0,{y}>=$F{f + i}),N($E{f + i}),N($D{f + i}))"
             put(ws, r, c, f"=IF({cap}=0,0,MAX(0,{vol}/(1-V_Merma)-{cap}))", fmt=NF_INT)
-        put(ws, r, 14, f'=COUNTIF(D{r}:M{r},">0.5")', fmt=NF_N, font=F_B)
+        put(ws, r, 14, f'=SUMPRODUCT(--(D{r}:M{r}>0.5))', fmt=NF_N, font=F_B)
         r += 1
     nm("c_CapExceso", "Productos", f"N{PR['cap_first']}:N{r - 1}")
     put(ws, r, 2, "Capacidad 0 = no informada (no se controla).", font=F_S)
@@ -1197,7 +1201,7 @@ def build_resultados():
                     f'(_xlfn.MAXIFS(Calculo!{RG("m")},{g(X, "DEUDA")},">1")+1)/12))'), NF_USD2, "Último mes con saldo de deuda + 1, en años."),
         ("cajamin", "Caja final mínima del horizonte", lambda X: f"=MIN({g(X, 'CAJA')})", NF_USD, "Negativa = financiamiento no previsto."),
         ("brecha", "Brecha máxima bajo la caja mínima", lambda X: f"={tot(X, 'BRECHA')}", NF_USD, "No se insertan fondos ficticios: la brecha queda visible."),
-        ("brechan", "Meses con brecha", lambda X: f'=COUNTIF({g(X, "BRECHA")},">0.5")', NF_N, ""),
+        ("brechan", "Meses con brecha", lambda X: f'=SUMPRODUCT(--({g(X, "BRECHA")}>0.5))', NF_N, ""),
         ("dscr", "DSCR mínimo desde el 2.º año de operación (flujo operativo / servicio de deuda)", None, NF_X,
          "Servicio = intereses + cuotas de préstamos (sin devoluciones de la línea). < 1 = la operación no alcanza a pagar la deuda ese año."),
         ("van", "VAN del proyecto (FCFF a WACC)", lambda X: f"=SUMPRODUCT({g(X, 'FCFF')},{g(X, 'DFP')})", NF_USD, "Excluye préstamos, intereses, aportes y dividendos."),
@@ -1414,7 +1418,7 @@ def build_control():
          "Revisar volumen o registrar la ampliación de capacidad (Productos A)."),
         ("Productos con volumen y sin precio vigente", "=SUMPRODUCT((Precio_V=0)*(VolTot_V>0))", "= 0", "zero", "Completar el precio."),
         ("Préstamos del presupuesto cancelados dentro del horizonte", "=r_DeudaFinP", "= 0", "abs1", "Revisar plazo o el horizonte."),
-        ("Brecha de caja vigente (meses bajo la caja mínima)", f'=COUNTIF(Calculo!{RG("V.BRECHA")},">0.5")', "= 0", "zero",
+        ("Brecha de caja vigente (meses bajo la caja mínima)", f'=SUMPRODUCT(--(Calculo!{RG("V.BRECHA")}>0.5))', "= 0", "zero",
          "Definir aportes, financiamiento o mejoras de capital de trabajo (alerta, no error de fórmula)."),
         ("Negocio en operación: mes real de inicio y último mes cerrado cargados", '=IF(n_Etapa="Operación",IF(AND(ISNUMBER(n_InicioReal),Corte>0),1,0),1)',
          "= 1", "one", "Completar en Inicio el mes real de inicio de operación y cargar los meses cerrados en Reales."),
