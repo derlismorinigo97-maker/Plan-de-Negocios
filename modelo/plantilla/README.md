@@ -60,4 +60,5 @@ python3 informe_escenarios.py carpeta/escenarios.pkl ../../Pruebas_Escenarios_EC
 | Días de cobro 150 | EBITDA igual, capital de trabajo mayor, VAN menor. |
 | Conservador | Inicio atrasado 3 meses. CAPEX pendiente +10% (755.044 → 830.548). |
 | Implantación (inicio en el mes 7) | Personal parcial y costos «desde año 0» en los meses 1-6, ventas desde el mes 7, depreciación desde la puesta en servicio. |
-| Batería de 36 escenarios | 385/385 verificaciones OK. Detalle en `../../Pruebas_Escenarios_v2.md`. |
+| Batería de 36 escenarios (12 productos) | 385/385 verificaciones OK. Detalle en `../../Pruebas_Escenarios_v2.md`. |
+| Batería v4 (25 productos): 39 escenarios + regresión | 489/489 verificaciones OK, mismos resultados que con 12 productos. Detalle en `../../Pruebas_Escenarios_v4.md`. |

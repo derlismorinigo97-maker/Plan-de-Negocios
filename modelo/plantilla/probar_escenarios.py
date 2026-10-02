@@ -88,6 +88,35 @@ def rampa(wb):
             ws.cell(r, c).value = v
 
 
+def producto(i, nombre, precio, mp, ins, ov, vol, unidad="u", cap=(None, None, None), ver="O"):
+    """Carga el producto i (1..N). ver="O": presupuesto (el vigente hereda). ver="V": producto nuevo, solo vigente."""
+    def f(wb):
+        for nmx, v in [("Prod_Nombre", nombre), (f"Precio_{ver}", precio), (f"MP_{ver}", mp), (f"INS_{ver}", ins), (f"OV_{ver}", ov),
+                       ("Cap_Ini", cap[0]), ("Cap_Amp", cap[1]), ("Cap_Anio", cap[2])]:
+            ws, r, c = cells(wb, nmx)[i - 1]
+            ws.cell(r, c).value = v
+        ws, r, c = cells(wb, "Prod_Nombre")[i - 1]
+        ws.cell(r, 3).value = unidad if nombre else None
+        for ws, r, c in cells(wb, f"Vol_{ver}")[(i - 1) * 10:(i - 1) * 10 + 10]:
+            ws.cell(r, c).value = vol if not isinstance(vol, list) else vol[c - 4]
+    return f
+
+
+def particion(wb):
+    """Reparte gabinetes en los espacios 1-13 y cajas en 14-25 (mismo precio, costos y volumen total)."""
+    np_ = len(cells(wb, "Prod_Nombre"))
+    vol = getv(wb, "Vol_O")
+    campos = ["Precio_O", "MP_O", "INS_O", "OV_O", "Cap_Ini", "Cap_Amp", "Cap_Anio"]
+    g = [getv(wb, k)[0] for k in campos]
+    c = [getv(wb, k)[1] for k in campos]
+    vg, vc = vol[0:10], vol[10:20]
+    ng, nc = 13, np_ - 13
+    for i in range(1, np_ + 1):
+        base, v, k, nom = (g, vg, ng, f"Gabinetes parte {i}") if i <= ng else (c, vc, nc, f"Cajas parte {i - ng}")
+        producto(i, nom, base[0], base[1], base[2], base[3], [x / k for x in v], cap=(base[4] / k, base[5] / k, base[6]))(wb)
+
+
+IDX10 = sum(1.01 ** y for y in range(10))      # índice acumulado de precio y materia prima (1% anual desde el año 2)
 MAS, MENOS = 3800000, 1800000
 VAR = lambda k: [scale("MP_O", "MP_V", k), scale("INS_O", "INS_V", k), scale("OV_O", "OV_V", k)]
 
@@ -150,6 +179,16 @@ ESC = [
     ("T1", "Tipo de cambio", "Sube el TC: Gs 8.760 (+20%)", "TC vigente de todos los años.", [S("TC_V", 8760)], "tc", {"tc": 8760}),
     ("T2", "Tipo de cambio", "Baja el TC: Gs 6.145 (−16%)", "Nivel usado en el archivo de Alianza del Acero (jun-2026).", [S("TC_V", 6145)], "tc", {"tc": 6145}),
     ("T3", "Tipo de cambio", "Baja el TC: Gs 5.840 (−20%)", "TC vigente de todos los años.", [S("TC_V", 5840)], "tc", {"tc": 5840}),
+    # ------------------------------------------------ estructura de 25 productos
+    ("X1", "Estructura de 25 productos", "Partición en los 25 espacios",
+     "Gabinetes repartidos en los productos 1-13 y cajas en 14-25: mismo precio, costos, capacidad y volumen total.", [particion], "particion", {}),
+    ("X2", "Estructura de 25 productos", "Productos nuevos 3, 13 y 25",
+     "Cargados solo en vigente (no estaban en el presupuesto). P3: precio 100, MP 30, INS 10, OV 5, 1.200 u/año. P13: 50 / 20 / 0 / 0, 600 u. P25: 200 / 80 / 20 / 0, 300 u. Datos de prueba, no comerciales.",
+     [producto(3, "Prueba 3", 100, 30, 10, 5, 1200, ver="V"), producto(13, "Prueba 13", 50, 20, 0, 0, 600, ver="V"),
+      producto(25, "Prueba 25", 200, 80, 20, 0, 300, ver="V")], "nuevo",
+     {"dv": (1200 * 100 + 600 * 50 + 300 * 200) * IDX10, "dm": 1200 * (30 * IDX10 + 10 * 10) + 600 * 20 * IDX10 + 300 * (80 * IDX10 + 20 * 10)}),
+    ("X3", "Estructura de 25 productos", "Producto con volumen y sin precio", "Producto 25 con 500 u/año y MP 10, sin precio.",
+     [producto(25, "Sin precio", None, 10, 0, 0, 500, ver="V")], "sinprecio", {}),
 ]
 
 
@@ -186,9 +225,12 @@ def run(e):
 
 
 if __name__ == "__main__":
+    solo = [x for x in os.environ.get("SOLO", "").split(",") if x]          # SOLO=X2,X3 vuelve a correr solo esos y conserva el resto
+    pkl = os.path.join(OUT, "escenarios.pkl")
+    previo = pickle.load(open(pkl, "rb")) if solo and os.path.exists(pkl) else {}
     with ThreadPoolExecutor(int(os.environ.get("HILOS", "6"))) as ex:
-        R = dict(ex.map(run, ESC))
-    R = {e[0]: R[e[0]] for e in ESC}
+        R = dict(ex.map(run, [e for e in ESC if not solo or e[0] in solo]))
+    R = {e[0]: R.get(e[0], previo.get(e[0])) for e in ESC if e[0] in R or e[0] in previo}
     pickle.dump(R, open(os.path.join(OUT, "escenarios.pkl"), "wb"))
     for k, v in R.items():
         print(k, v["nombre"], "errores:", v["err"])

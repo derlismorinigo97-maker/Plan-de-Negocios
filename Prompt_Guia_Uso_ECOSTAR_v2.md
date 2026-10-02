@@ -2,8 +2,8 @@
 
 **Cómo usarlo**
 
-1. Abrir `Modelo_Maquila_ECOSTAR_v2.xlsx` (de preferencia una copia) y el panel de Claude.
-2. Para mejores resultados, pegar primero `Prompt_Claude_Excel_ECOSTAR_v2.md`, que da el contexto, las celdas clave y los valores de referencia. Después pegar este prompt en el mismo chat. Este prompt también funciona solo.
+1. Abrir `Modelo_Maquila_ECOSTAR_v4.xlsx` (de preferencia una copia) y el panel de Claude. También sirve para la v2.
+2. Para mejores resultados, pegar primero `Prompt_Claude_Excel_ECOSTAR_v4.md` (o el `…_v2.md` si usás la v2), que da el contexto, las celdas clave y los valores de referencia. Después pegar este prompt en el mismo chat. Este prompt también funciona solo.
 3. Pegar todo el texto que está debajo de la línea «COPIAR DESDE AQUÍ».
 
 ---- COPIAR DESDE AQUÍ ----
@@ -200,7 +200,7 @@ Para cada alerta, explicame la causa probable en este libro y la acción concret
   - mensual: cierre de reales y controles;
   - trimestral: revisión de los supuestos vigentes y de los escenarios;
   - anual o ante un cambio relevante: posible nueva versión del presupuesto, con aprobación.
-- **Versiones:** guardar una copia por cierre con nombre fechado (por ejemplo `ECOSTAR_v2_cierre_2026-09.xlsx`) y registrar los cambios de supuestos con su fuente.
+- **Versiones:** guardar una copia por cierre con nombre fechado (por ejemplo `ECOSTAR_v4_cierre_2026-09.xlsx`) y registrar los cambios de supuestos con su fuente.
 - **Informe a la Gerencia:**
   1. qué pasó (real vs presupuesto);
   2. por qué;

@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
 """
 Arma el libro de resultados de la batería de escenarios (valores fijos, no fórmulas) y ejecuta las verificaciones.
-Uso: python3 informe_escenarios.py escenarios.pkl salida.xlsx
+Uso: python3 informe_escenarios.py escenarios.pkl salida.xlsx [referencia.pkl]
+     referencia.pkl (opcional): corrida anterior para la prueba de regresión escenario por escenario.
+     Variables de entorno opcionales: MODELO (título), LIBRO (archivo probado), FECHA (fecha de la corrida).
 """
+import os
 import pickle
 import sys
 from openpyxl import Workbook
@@ -12,6 +15,10 @@ from openpyxl.utils import get_column_letter as CL
 
 R = pickle.load(open(sys.argv[1], "rb"))
 OUT = sys.argv[2]
+REF = pickle.load(open(sys.argv[3], "rb")) if len(sys.argv) > 3 else None
+MODELO = os.environ.get("MODELO", "Ecostar v2")
+LIBRO = os.environ.get("LIBRO", "Modelo_Maquila_ECOSTAR_v2.xlsx")
+FECHA = os.environ.get("FECHA", "01/10/2026")
 FIN, N = 120, 144
 B = "E00"
 
@@ -85,7 +92,7 @@ def conc(e):
 
 
 ck("Caja final = suma de flujos operativos, de inversión y de financiamiento", todos, conc)
-ck("El presupuesto original (bloque P) no cambia con ningún escenario", todos,
+ck("El presupuesto original (bloque P) no cambia con ningún escenario (salvo X1, que lo reorganiza a propósito)", [e for e in R if R[e]["tipo"] != "particion"],
    lambda e: True if all(R[e]["rows"][k] == base_rows[k] for k in base_rows if k.startswith("P.")) else "cambió")
 ck("Saldos de deuda y de línea nunca negativos", todos, lambda e: True if min(rows(e, "V.DEUDA") + rows(e, "V.LCS")) > -0.01 else "saldo negativo")
 ck("Línea rotativa dentro del límite", todos, lambda e: True if max(rows(e, "V.LCS")) <= R[e]["meta"].get("lim", 0) + 0.01 else "supera el límite")
@@ -142,13 +149,46 @@ ck("Caja bajo el mínimo activa el control C13", [e for e in R if max(rows(e, "V
 ck("Inicio atrasado: sin ventas antes del nuevo mes de inicio (P1: mes 7)", ["P1"], lambda e: True if sum(rows(e, "V.vtas")[:6]) == 0 and rows(e, "V.vtas")[6] > 0 else "ventas antes")
 ck("Selector de escenario aplica el atraso de 3 meses (P2)", ["P2"], lambda e: True if sum(rows(e, "V.vtas")[:3]) == 0 and rows(e, "V.vtas")[3] > 0 else "no aplicó")
 
+
+def kpis_iguales(e, ref, tol=0.01):
+    malos = []
+    for lab, (p, v) in ref.items():
+        x = R[e]["kpi"].get(lab, (None, None))[1]
+        if isinstance(v, (int, float)) and isinstance(x, (int, float)):
+            if abs(v - x) > (tol if abs(v) > 10 else 1e-6):
+                malos.append(f"{lab}: {v} vs {x}")
+        elif v != x:
+            malos.append(f"{lab}: {v} vs {x}")
+    return True if not malos else "; ".join(malos[:3])
+
+
+part = tipo("particion")
+ck("Partición en los 25 espacios: todos los indicadores iguales a la base", part, lambda e: kpis_iguales(e, R[B]["kpi"]))
+ck("Partición: ventas, materiales, EBITDA y caja mes a mes iguales a la base", part,
+   lambda e: True if all(max(abs(a - b) for a, b in zip(rows(e, k), rows(B, k))) < 0.01 for k in ["V.vtas", "V.MAT", "V.EBITDA", "V.CAJA", "P.vtas", "P.MAT"]) else "difiere")
+ck("Partición: sin alertas de capacidad ni de precio (C10, C11 en OK)", part,
+   lambda e: True if all(c[3] == "OK" for c in R[e]["ctl"] if c[0] in ("C10", "C11")) else "alerta")
+nuevo = tipo("nuevo")
+ck("Productos nuevos 3, 13 y 25 (solo vigente): Δ ventas = Σ volumen × precio × índice; presupuesto sin cambio", nuevo,
+   lambda e: True if abs(sum(rows(e, "V.vtas")) - sum(rows(B, "V.vtas")) - R[e]["meta"]["dv"]) < 0.01 and eq(e, "P.vtas") else "no coincide")
+ck("Productos nuevos 3, 13 y 25: Δ materiales = Σ volumen × (MP × índice + insumos); presupuesto sin cambio", nuevo,
+   lambda e: True if abs(sum(rows(e, "V.MAT")) - sum(rows(B, "V.MAT")) - R[e]["meta"]["dm"]) < 0.01 and eq(e, "P.MAT") else "no coincide")
+sinp = tipo("sinprecio")
+ck("Producto con volumen y sin precio activa C11 y no suma ventas", sinp,
+   lambda e: True if any(c[0] == "C11" and c[3] == "REVISAR" for c in R[e]["ctl"]) and eq(e, "V.vtas") else "no alertó")
+if REF:
+    comunes = [e for e in REF if e in R]
+    ck("Regresión: cada escenario da los mismos indicadores que la corrida de referencia (12 productos)", comunes, lambda e: kpis_iguales(e, REF[e]["kpi"]))
+    ck("Regresión: caja, deuda y FCFF mes a mes iguales a la referencia", comunes,
+       lambda e: True if all(max(abs((a or 0) - (b or 0)) for a, b in zip(R[e]["rows"][k], REF[e]["rows"][k])) < 0.01 for k in ["V.CAJA", "V.DEUDA", "V.FCFF", "V.EBITDA"]) else "difiere")
+
 # ------------------------------------------------------------------ libro
 wb = Workbook()
 ws = wb.active
 ws.title = "Resumen"
-ws["A1"] = "Ecostar v2 — batería de escenarios (resultados del modelo, vigente)"
+ws["A1"] = f"{MODELO} — batería de escenarios (resultados del modelo, vigente)"
 ws["A1"].font = FT
-ws["A2"] = ("Valores fijos de las corridas del 01/10/2026 sobre Modelo_Maquila_ECOSTAR_v2.xlsx (supuestos Oct-2025, sin reales). "
+ws["A2"] = (f"Valores fijos de las corridas del {FECHA} sobre {LIBRO} (supuestos Oct-2025, sin reales). "
             "Cada escenario modifica solo entradas vigentes; el presupuesto original queda como referencia. USD.")
 ws["A2"].font = FS
 cols = [("Id", 6, None), ("Escenario", 34, None), ("Qué cambia", 46, None),
@@ -235,7 +275,7 @@ for nombre, k, end in [("Caja anual", "V.CAJA", True), ("Deuda anual", "V.DEUDA"
 
 # ------------------------------------------------------------------ verificaciones
 w = wb.create_sheet("Verificaciones")
-w["A1"] = "Verificaciones automáticas del motor sobre los 36 escenarios"
+w["A1"] = f"Verificaciones automáticas del motor sobre los {len(R)} escenarios"
 w["A1"].font = FT
 for i, (h, wd) in enumerate([("#", 5), ("Verificación", 80), ("Escenarios", 11), ("OK", 8), ("Estado", 10), ("Detalle de fallas", 50)], 1):
     c = w.cell(3, i, h)
@@ -271,6 +311,8 @@ sup = [
     ("Tipo de cambio", "Base Gs 7.300 (plan). Sube a 8.760 (+20%); baja a 6.145 (nivel del archivo de Alianza del Acero, jun-2026) y 5.840 (−20%). Ventas y materiales en USD; nómina y parte de los fijos en Gs."),
     ("Línea rotativa", "Se usa automáticamente cuando la caja cae bajo el mínimo (3 días de ventas) y se devuelve con el excedente; los dividendos esperan a que se cancele. "
                        "Al vencer se paga todo el saldo. Supone renovación garantizada hasta el vencimiento cargado."),
+    ("Estructura de 25 productos", "X1-X3 son pruebas técnicas de la ampliación a 25 productos con datos de prueba (no comerciales): partición del volumen actual "
+                                   "en los 25 espacios (debe dar lo mismo que la base), productos nuevos 3, 13 y 25 (sumas exactas) y producto sin precio (alerta C11)."),
     ("Limitaciones", "La caja positiva no genera intereses. No se modelan comisiones de apertura ni garantías. El volumen sobre capacidad no se limita (solo se alerta). "
                      "Los resultados usan supuestos de 2025 y no acreditan la situación actual."),
 ]
