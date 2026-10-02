@@ -96,7 +96,7 @@ La lógica general es razonable, pero la información está dispersa y repetida,
 |---|---|---|
 | Inicio | Nombre, etapa (Implantación/Operación), fecha del mes 1, último mes cerrado, mes real de inicio, escenario. Estado, instrucciones y pendientes. | Sí |
 | Supuestos | Parámetros generales, supuestos por año (TC, variaciones de precio/costos/salarios, dividendos), escenarios y referencia del plan publicado. | Sí |
-| Productos | Hasta 12 productos: precio, materia prima, insumos y otros variables por unidad; capacidad y volúmenes por año. | Sí |
+| Productos | Hasta 25 productos individuales: precio, materia prima, insumos y otros variables por unidad; capacidad y volúmenes por año. | Sí |
 | Costos | Hasta 30 puestos (clase, moneda, salario, dotación por año) y 25 costos fijos (moneda, crecimiento, año de inicio, IVA, base de imprevistos). | Sí |
 | Inversion | Hasta 20 ítems de CAPEX (presupuesto, ejecutado, pagado, comprometido, por contratar), 3 préstamos, una línea rotativa y 10 aportes. | Sí |
 | Reales | Un dato por celda y por mes: TC, unidades y ventas por producto, 7 rubros de costo, CAPEX, financiamiento y saldos al cierre. | Sí (mensual) |

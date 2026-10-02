@@ -37,7 +37,7 @@ else:
 # ---------------------------------------------------------------------------- dimensiones
 N = 144                     # meses de la rejilla (12 años: implantación + 10 años de operación)
 FCOL = 6                    # columna del mes 1 en Reales y Calculo (F)
-NP, NPER, NFIJ, NCAP, NAP, NL = 12, 30, 25, 20, 10, 3
+NP, NPER, NFIJ, NCAP, NAP, NL = 25, 30, 25, 20, 10, 3   # productos individuales, puestos, costos fijos, CAPEX, aportes, préstamos
 NY = 10                     # años de supuestos
 NYR = 12                    # años del resumen
 
@@ -241,7 +241,7 @@ def build_inicio():
     r += 2
     section(ws, r, "5. Hojas", 4); r += 1
     hojas = [("Supuestos", "Parámetros generales, supuestos por año, escenarios y referencia del plan publicado."),
-             ("Productos", "Hasta 12 productos: precio, costos unitarios, capacidad y volumen anual (presupuesto y vigente)."),
+             ("Productos", f"Hasta {NP} productos: precio, costos unitarios, capacidad y volumen anual (presupuesto y vigente)."),
              ("Costos", "Personal por puesto (dotación por año) y costos fijos (moneda, crecimiento, inicio)."),
              ("Inversion", "CAPEX por ítem (presupuesto, ejecutado, comprometido, por contratar), préstamos y aportes."),
              ("Reales", "Carga mensual de la ejecución y saldos al cierre (formato fijo: un dato por celda)."),
@@ -457,7 +457,7 @@ PR = {}
 def build_productos():
     ws = WS["Productos"]
     title(ws, "Productos — precios, costos unitarios, capacidad y volúmenes (USD por unidad de venta)",
-          "Hasta 12 productos. Las columnas «vigente» heredan el presupuesto; sobrescribir lo que cambió.")
+          f"Hasta {NP} productos. Las columnas «vigente» heredan el presupuesto; sobrescribir lo que cambió.")
     widths(ws, {"A": 4, "B": 34, "C": 8})
     for c in range(4, 16):
         ws.column_dimensions[CL(c)].width = 12.5
@@ -909,7 +909,7 @@ def version_rows(X):
         fc = lambda m, i=i: f"{a('u' + str(i + 1), m)}*INDEX(Precio_{O},{i + 1})*INDEX(IdxPrecio_{O},1,MIN({NY},{a('ya', m)}))*(1+{X}_dPrecio)"
         rows.append((f"s{i + 1}", f'=IF(INDEX(Prod_Nombre,{i + 1})="","Producto {i + 1}",INDEX(Prod_Nombre,{i + 1}))&" — ventas USD"', "USD",
                      (lambda m, i=i, fc=fc: R("S" + str(i + 1), m, fc(m))), NF_USD, "sum"))
-    rows.append(("vtas", "VENTAS TOTALES", "USD", lambda m: "=" + "+".join(a(f"s{i + 1}", m) for i in range(NP)), NF_USD, "sum", True))
+    rows.append(("vtas", "VENTAS TOTALES", "USD", lambda m: f"=SUM({a('s1', m)}:{a('s' + str(NP), m)})", NF_USD, "sum", True))
     urng = lambda m: f"{mc(m)}{ROW[K('u1')]}:{mc(m)}{ROW[K('u' + str(NP))]}"
     yi = lambda nmx, m: f"INDEX({nmx}_{O},1,MIN({NY},{a('ya', m)}))"
     rows.append(("sec", "Costos de la proyección (en meses reales se reemplazan por Reales)"))

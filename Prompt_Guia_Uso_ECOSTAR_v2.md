@@ -96,21 +96,21 @@ El libro es el modelo de **Ecostar** (maquila CIE–PERG de gabinetes y cajas me
 **Orden recomendado:**
 
 1. **TC real del mes** (fila 10), según la política de CIE: promedio del mes o cierre, siempre la misma.
-2. **Unidades vendidas** (filas 12-23) y **ventas netas** por producto (filas 25-36), desde la facturación SD/FI.
-3. **Costos devengados sin IVA recuperable** (filas 38-44):
+2. **Unidades vendidas** (filas 12-36) y **ventas netas** por producto (filas 38-62), desde la facturación SD/FI. Hay lugar para 25 productos.
+3. **Costos devengados sin IVA recuperable** (filas 64-70):
    - materiales e insumos consumidos (MM/CO);
    - otros variables;
    - personal de producción y administrativo, con cargas (columna C en PYG si viene de nómina);
    - fijos de producción;
    - administración;
    - tributo de maquila.
-4. **Movimientos de caja** (filas 46-51):
+4. **Movimientos de caja** (filas 72-77):
    - CAPEX pagado (PS);
    - desembolsos, incluida la línea;
    - intereses con IVA y comisiones;
    - amortizaciones, incluidas las devoluciones de la línea;
    - aportes y dividendos.
-5. **Saldos al cierre del último mes cerrado** (filas 53-58): caja y bancos, clientes, inventarios, IVA por recuperar, proveedores y deuda.
+5. **Saldos al cierre del último mes cerrado** (filas 79-84): caja y bancos, clientes, inventarios, IVA por recuperar, proveedores y deuda.
 6. Recién después, actualizar `n_Corte` en Inicio.
 7. Revisar Control: C03 a C08 en OK.
 

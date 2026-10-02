@@ -44,7 +44,7 @@ El libro abierto es el modelo financiero de **Ecostar**, la maquila CIE–PERG d
 |---|---|---|
 | Inicio | Nombre, etapa, fecha del mes 1, último mes cerrado (`n_Corte`, C11), mes real de inicio (`n_InicioReal`, C12), escenario (`n_Escenario`, C13: Vigente/Conservador/Optimista) | Sí |
 | Supuestos | A: parámetros (columna D = presupuesto, E = vigente). B: supuestos por año (TC, variaciones, dividendos). C: escenarios Conservador/Optimista (E64:F71). D: plan publicado. E: valores aplicados (no editar). | Sí (D, E y C) |
-| Productos | Precio y costos por unidad (presupuesto/vigente), capacidad y volúmenes por año | Sí |
+| Productos | Hasta 25 productos individuales: precio y costos por unidad (presupuesto/vigente), capacidad y volúmenes por año | Sí |
 | Costos | 30 puestos (salario y dotación) y 25 costos fijos (moneda PYG/USD, crecimiento, desde qué año) | Sí |
 | Inversion | 20 ítems de CAPEX, 3 préstamos, línea rotativa (B2) y aportes | Sí |
 | Reales | Carga mensual de la ejecución y saldos al cierre (mes 1 = columna F) | Sí (mensual) |
@@ -62,7 +62,7 @@ El libro abierto es el modelo financiero de **Ecostar**, la maquila CIE–PERG d
 | `vg_WACC` / `vg_Ke` | Supuestos!E30 / E31 | Tasas de descuento (vigente) |
 | `TC_V` | Supuestos!D51:M51 | TC vigente, años 1 a 10 (presupuesto en la fila 39) |
 | `Precio_V`, `MP_V`, `INS_V`, `OV_V` | Productos!H, J, L, N filas 6-7 | Precio y costos por unidad vigentes (presupuesto en G, I, K, M) |
-| `Vol_V` | Productos!D37:M38 | Unidades vigentes (presupuesto en D21:M22) |
+| `Vol_V` | Productos!D63:M64 | Unidades vigentes de los productos 1-2 (presupuesto en D34:M35). Con 25 productos: vigente D63:M87, presupuesto D34:M58 |
 | `Sal_V` / `FC_V` | Costos!F6:F31 / F75:F83 | Salarios / costos fijos vigentes (presupuesto en la columna E) |
 | CAPEX «Por contratar (si difiere)» | Inversion!J6:J19 | Costo final pendiente por ítem |
 | Préstamo 1 vigente | Inversion!E32:E36 | Monto, mes, tasa, gracia, cuotas |
@@ -137,7 +137,7 @@ Cada escenario parte de la base y modifica solo celdas vigentes. «Línea X» si
 | C2 | Ídem × 1,20 | 249.504 | −1.129.352 | 3.186.573 | 104 | 813.214 | 5,0 | −0,69 |
 | C3 | Ídem × 1,30 | −3.120.704 | −3.725.162 | 5.685.501 | 117 | 813.214 | 5,0 | −1,24 |
 | C4 | C3 + Costos!F6:F31 = E × 1,30 + Costos!F75:F83 = E × 2 | −7.020.642 | −6.753.823 | 10.601.180 | 118 | 813.214 | 5,0 | −1,95 |
-| V1 | Productos!D37:M38 = D21:M22 × 0,90 | 5.422.991 | 2.690.586 | 430.519 | 21 | 813.214 | 5,0 | 0,22 |
+| V1 | Productos!D63:M64 = D34:M35 × 0,90 | 5.422.991 | 2.690.586 | 430.519 | 21 | 813.214 | 5,0 | 0,22 |
 | V2 | Ídem × 0,80 | 3.856.060 | 1.656.795 | 656.645 | 33 | 813.214 | 5,0 | 0,03 |
 | V3 | Ídem × 0,70 | 2.289.130 | 626.407 | 882.772 | 45 | 813.214 | 5,0 | −0,15 |
 | V4 | Ídem × 1,10 (activa C10: supera la capacidad) | 8.556.853 | 4.713.191 | 290.460 | 8 | 813.214 | 5,0 | 0,58 |

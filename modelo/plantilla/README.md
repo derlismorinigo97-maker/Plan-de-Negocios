@@ -18,7 +18,7 @@ Para generar el libro de otro negocio desde código, hay que crear `datos_<negoc
 | Elemento | Capacidad |
 |---|---|
 | Meses | 144 (12 años) |
-| Productos | 12 |
+| Productos | 25 (individuales) |
 | Puestos | 30 |
 | Costos fijos | 25 |
 | Ítems de CAPEX | 20 |
