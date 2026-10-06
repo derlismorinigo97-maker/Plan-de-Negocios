@@ -14,3 +14,12 @@
 | `versiones/v1_Modelo_Financiero_Maquila_CIE_PERG_detallado.xlsx` | Versión previa detallada (15 hojas), conservada para comparación. |
 | `modelo/plantilla/` | Generador de la plantilla v2 y datos de Ecostar. |
 | `modelo/v1/` | Generador y pruebas de la versión 1. |
+
+## Impulso Empresarial — carrusel de LinkedIn
+
+| Archivo | Uso |
+|---|---|
+| `impulso-empresarial/Impulso_Empresarial_LinkedIn.pptx` | Carrusel editable de 8 páginas (8 × 10 in), con gráfico nativo y notas por diapositiva. |
+| `impulso-empresarial/Impulso_Empresarial_LinkedIn.pdf` | Versión PDF para cargar como documento en LinkedIn. |
+| `impulso-empresarial/Texto_LinkedIn.md` | Texto de la publicación, título sugerido del documento y notas de edición. |
+| `impulso-empresarial/generar_carrusel.js` | Generador del `.pptx` (pptxgenjs). |
