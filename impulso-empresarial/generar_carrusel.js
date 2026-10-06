@@ -182,7 +182,8 @@ async function main() {
     1, "IE Portada", "Apertura", "PROYECTO DE TESIS · PARAGUAY",
     lineas("Tu negocio", "genera datos.", ["¿Los estás usando", { color: C.accent2 }], ["para decidir?", { color: C.accent2 }]),
     "Portada. Impulso Empresarial se presenta como una idea de negocio desarrollada en la tesis de Ingeniería Comercial de Derlis Javier Morinigo Ovelar; no como una empresa en operación. " +
-      "El diagrama resume la propuesta: datos de ventas, costos y caja integrados en información para tomar decisiones."
+      "El diagrama resume la propuesta: datos de ventas, costos y caja integrados en información para tomar decisiones. " +
+      "Referencia: Trabajo Profesional de Grado (2.ª corrección, 13-09): título de la obra y resumen ejecutivo. No se usa el título académico completo de la tesis."
   );
   s.addText(
     [
@@ -218,7 +219,9 @@ async function main() {
     "Tres preguntas para entender tu negocio.",
     "Las tres preguntas son situaciones habituales de gestión, no resultados de una encuesta ni estadísticas verificadas. " +
       "Separan tres conceptos distintos: vender (ventas), ganar (rentabilidad: lo que queda después de costos y gastos) y cobrar (caja y liquidez). " +
-      "Un negocio puede vender más y aun así ganar menos, o ganar y no tener efectivo disponible."
+      "Un negocio puede vender más y aun así ganar menos, o ganar y no tener efectivo disponible. " +
+      "Referencia: Trabajo Profesional de Grado (2.ª corrección, 13-09), 2.2.1: aplicaciones al seguimiento de ventas, costos y gastos, a la rentabilidad por producto o cliente y al control de inventarios y cobranzas. " +
+      "La pregunta de caja (efectivo de las próximas semanas) va un paso más allá del alcance escrito en la tesis, que menciona cobranzas pero no proyección de caja."
   );
   const preguntas = [
     ["VENTAS", ["¿Qué productos o clientes", "aportan más?"], "LuShoppingCart"],
@@ -253,7 +256,8 @@ async function main() {
     lineas("Impulso", ["Empresarial", { color: C.accent2 }]),
     "Propuesta de consultoría unipersonal en Inteligencia de Negocios (Business Intelligence, BI) para micro, pequeñas y medianas empresas. " +
       "«Ordenar, visualizar, decidir» es una síntesis comercial para este carrusel. Foco inicial: San Lorenzo y el área metropolitana de Paraguay. " +
-      "Es una idea de negocio de la tesis: no se afirma que esté operando ni que tenga clientes."
+      "Es una idea de negocio de la tesis: no se afirma que esté operando ni que tenga clientes. " +
+      "Referencia: Trabajo Profesional de Grado (2.ª corrección, 13-09): resumen ejecutivo; 2.1 y Tabla 1 (consultora unipersonal, MIPYMES, San Lorenzo y área metropolitana, atención presencial y virtual); 2.2.2 (mercado de referencia)."
   );
   s.addText("Una consultoría de Inteligencia de Negocios pensada para las MIPYMES.", {
     x: MX, y: 2.6, w: CW, h: 0.85, fontSize: 22, color: C.background1, margin: 0, valign: "top", isTextBox: true,
@@ -305,7 +309,10 @@ async function main() {
     "Qué incluiría el servicio.",
     "Alcance propuesto del servicio: diagnóstico de información y necesidades, tableros de control, automatización de reportes, " +
       "definición y análisis de indicadores, capacitación y acompañamiento posterior. Herramientas: Excel y Power BI. " +
-      "Lenguaje de propuesta: no se publican precios, paquetes comerciales ni compromisos contractuales."
+      "Lenguaje de propuesta: no se publican precios, paquetes comerciales ni compromisos contractuales. " +
+      "Referencia: Trabajo Profesional de Grado (2.ª corrección, 13-09): resumen ejecutivo (diagnóstico, tableros, automatización de reportes, análisis de indicadores, mantenimiento mensual); " +
+      "2.2.1 (capacitación inicial; mantenimiento y soporte mensual); Tabla 2 (integración de planillas Excel); 2.8.1 (Power BI). " +
+      "Los niveles básico, estándar y avanzado y los precios de la Tabla 10 se omiten a propósito."
   );
   const servicios = [
     ["Diagnóstico", "Datos disponibles y necesidades de gestión.", "LuSearch"],
@@ -355,6 +362,7 @@ async function main() {
       "Cuentas por cobrar al cierre: Gs. 45 millones. Es un saldo adicional simulado; no son cobros del mes ni flujo de caja, ni una parte adicional de las ventas que deba sumarse a los Gs. 120 millones.",
       "Lectura: la Línea B tiene la mitad del margen de A y C. El tablero no da la respuesta; indica dónde revisar (precios, costos o descuentos) antes de decidir.",
       "El gráfico es nativo de PowerPoint: los datos se editan con clic derecho > Editar datos.",
+      "Referencia: Trabajo Profesional de Grado (2.ª corrección, 13-09), 2.2.1: «un tablero comercial podrá mostrar la evolución de las ventas y los márgenes por producto». Los importes del ejemplo no provienen de la tesis.",
     ].join("\n")
   );
   // Panel del tablero
@@ -431,7 +439,9 @@ async function main() {
     lineas("Así se plantea", "el acompañamiento."),
     "Proceso propuesto en cuatro pasos: entender las decisiones, ordenar y validar los datos, implementar tablero y reportes según el alcance acordado, " +
       "y acompañar el uso de los indicadores. Modalidad: implementación por proyecto más seguimiento mensual. " +
-      "No se fijan plazos, cantidad de reuniones ni compromisos contractuales."
+      "No se fijan plazos, cantidad de reuniones ni compromisos contractuales. " +
+      "Referencia: Trabajo Profesional de Grado (2.ª corrección, 13-09): 7.4, Tablas 24, 25 y 27 (diagnóstico y propuesta, ejecución del servicio, seguimiento posventa) y 2.2.1 (implementación por proyecto; mantenimiento como prestación recurrente). " +
+      "En la tesis la prestación mensual se denomina «mantenimiento y soporte»; «seguimiento mensual» es la forma simplificada usada en el carrusel."
   );
   const pasos = [
     ["Entender", "Qué decisiones necesita tomar el negocio."],
@@ -487,7 +497,8 @@ async function main() {
     7, "IE Contenido claro", "Origen y cierre", "EL ORIGEN DE LA IDEA",
     lineas("Una idea que une", "finanzas y datos."),
     "Contexto profesional del autor, sin convertir la página en un currículum. Impulso Empresarial se desarrolló como proyecto de tesis de Ingeniería Comercial; " +
-      "no se usa el título de Ingeniero Comercial ni se afirma que la tesis ya fue defendida. No se menciona al empleador actual ni logros comerciales de Impulso Empresarial."
+      "no se usa el título de Ingeniero Comercial ni se afirma que la tesis ya fue defendida. No se menciona al empleador actual ni logros comerciales de Impulso Empresarial. " +
+      "Referencia: Trabajo Profesional de Grado (2.ª corrección, 13-09): portada (autor y carrera) y 4.8 (la experiencia profesional del consultor como parte de la ventaja competitiva)."
   );
   const dV = 2.0, yV = 2.6, xV1 = 2.25, xV2 = 3.75;
   s.addShape(pres.shapes.OVAL, { x: xV1, y: yV, w: dV, h: dV, fill: { color: C.accent1, transparency: 5 }, line: { color: C.accent1, transparency: 100 }, objectName: "Círculo finanzas" });
@@ -532,7 +543,9 @@ async function main() {
     8, "IE Portada", "Origen y cierre", "CONVERSEMOS",
     lineas("¿Qué dato te", "ayudaría a", ["decidir mejor?", { color: C.accent2 }]),
     "Invitación a conversar para seguir afinando la propuesta y a visitar el perfil de LinkedIn. " +
-      "No se agregan teléfono, correo, QR, enlaces ni ofertas (por ejemplo, diagnósticos gratuitos)."
+      "No se agregan teléfono, correo, QR, enlaces ni ofertas (por ejemplo, diagnósticos gratuitos). " +
+      "Referencia: Trabajo Profesional de Grado (2.ª corrección, 13-09): 2.8.1 prevé LinkedIn como canal de contacto; el resumen ejecutivo indica que la captación y la disposición de pago deben validarse antes de implementar. " +
+      "Las conversaciones que genere el carrusel son señales cualitativas, no una validación de mercado."
   );
   await chipsConceptos(s, 4.0);
   s.addText(lineas("Me interesa conversar con emprendedores", "y profesionales para seguir afinando", "esta propuesta."), {
