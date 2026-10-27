@@ -45,7 +45,8 @@ Para generar el libro de otro negocio desde código, hay que crear `datos_<negoc
 ```bash
 python3 probar_plantilla.py   libro.xlsx recalc.py carpeta   # reales congelados, TC, días, atraso, implantación
 python3 probar_escenarios.py  libro.xlsx recalc.py carpeta   # 36 escenarios (genera escenarios.pkl)
-python3 informe_escenarios.py carpeta/escenarios.pkl ../../Pruebas_Escenarios_ECOSTAR_v2.xlsx   # resumen y 385 verificaciones
+python3 informe_escenarios.py carpeta/escenarios.pkl ../../Pruebas_Escenarios_ECOSTAR_v6.xlsx [referencia.pkl]   # resumen, verificaciones y regresión
+python3 probar_detalle.py     libro.xlsx recalc.py carpeta   # proyección rodante de 24 meses (60 comprobaciones)
 ```
 
 `libro.xlsx` es el libro generado sin recalcular. `recalc.py` es el script de recálculo con LibreOffice headless.
@@ -62,4 +63,5 @@ python3 informe_escenarios.py carpeta/escenarios.pkl ../../Pruebas_Escenarios_EC
 | Implantación (inicio en el mes 7) | Personal parcial y costos «desde año 0» en los meses 1-6, ventas desde el mes 7, depreciación desde la puesta en servicio. |
 | Batería de 36 escenarios (12 productos) | 385/385 verificaciones OK. Detalle en `../../Pruebas_Escenarios_v2.md`. |
 | Batería v4 (25 productos): 39 escenarios + regresión | 489/489 verificaciones OK, mismos resultados que con 12 productos. Detalle en `../../Pruebas_Escenarios_v4.md`. |
+| v6 completa (27/10/2026): 39 escenarios + 7 de operación + 60 de detalle | 495/495 y 60/60 OK; regresión frente a la v4 sin diferencias. Detalle en `../../Pruebas_Escenarios_v6.md`. |
 | v6: proyección rodante de 24 meses (27/10/2026) | Con Detalle_24m vacío, Calculo idéntico a la v5 (0 celdas distintas). 25 pruebas de detalle OK: volumen, precio, materiales, personal, fijos, TC, ventana móvil con cierre, escenario y ventana de 12 meses; balance 0. |
