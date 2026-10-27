@@ -15,6 +15,7 @@
 | `Prompt_Claude_Excel_ECOSTAR_v4.md` | Prompt para que Claude en Excel evalúe la v4 paso a paso (celdas v4, 39 escenarios con valores esperados, prueba de reales). |
 | `Prompt_Claude_Excel_ECOSTAR_v2.md` | Prompt de contexto para trabajar el modelo Ecostar v2 con Claude en Excel (validación, celdas clave, 36 escenarios de referencia). |
 | `Prompt_Guia_Uso_ECOSTAR_v2.md` | Prompt para que Claude en Excel guíe paso a paso el uso del modelo (carga, cierre mensual, escenarios, lectura de resultados, criterios y errores frecuentes). |
+| `versiones/Modelo_Maquila_ECOSTAR_v6_validacion_Excel.xlsx` | Copia de pruebas devuelta por Claude en Excel (27/10/2026): «Claude Log» de la validación e «Informe_Cierre_v6» (439/439 OK). Es evidencia; no es para trabajar. |
 | `versiones/Modelo_Maquila_ECOSTAR_v5.xlsx` | Versión anterior (sin la proyección de 24 meses). |
 | `versiones/Modelo_Maquila_ECOSTAR_v4.xlsx` | Versión anterior (igual a la v5 sin la guía de carga). |
 | `versiones/v1_Modelo_Financiero_Maquila_CIE_PERG_detallado.xlsx` | Versión previa detallada (15 hojas), conservada para comparación. |

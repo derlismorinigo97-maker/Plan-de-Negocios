@@ -64,6 +64,7 @@ Claude hace un paso por turno y espera tu «seguir». Antes de escribirlo, contr
 ## Criterios a cuidar durante la validación
 
 - No se tocan Calculo, Resultados, Control ni Proyeccion_24m, ni filas, columnas o nombres definidos.
+- **Filas con fórmula en Detalle_24m:** las filas «Celdas con dato en el mes» (11, 39, 67, 95, 123, 151, 184, 217 y 245) no se borran. Para limpiar el detalle, Claude debe borrar solo las filas de datos de cada bloque. En la primera validación se borraron con un rango amplio y hubo que restaurarlas.
 - **Un paso por turno.** Si Claude intenta hacer varios juntos, pedile que se detenga y siga de a uno.
 - **Si el chat se alarga y Claude pierde el contexto:** abrir un chat nuevo, pegar de nuevo el prompt y escribir «Seguimos desde el paso N; lo hecho está en Claude Log».
 - La copia de pruebas no se usa como modelo de trabajo. Para cargar datos reales se parte del original v6.

@@ -35,6 +35,8 @@ El libro abierto es el modelo financiero de **Ecostar**, la maquila CIE–PERG d
 - proyección rodante de 24 meses: 11 casos con **60 de 60 comprobaciones OK**;
 - con Detalle_24m vacío, la hoja Calculo es idéntica a la v5 celda por celda.
 
+**Primera validación en Excel (27/10/2026, Excel 16 en Windows, configuración es-PY):** 439 de 439 comprobaciones OK, sin diferencias.
+
 Tu tarea es **confirmar que Excel reproduce esos resultados** y avisarme de cualquier diferencia.
 
 ## 2. Reglas de trabajo
@@ -50,6 +52,7 @@ Tu tarea es **confirmar que Excel reproduce esos resultados** y avisarme de cual
 - **Diferencias.** Si algo no coincide con lo esperado, **no lo corrijas**: informá la celda, el valor esperado, el valor de Excel y tu hipótesis de la causa.
 - **Tolerancia:** ±1 USD en montos, ±0,01 en ratios y ±0,01 puntos en tasas.
 - **Criterio regional:** no uses decimales dentro de criterios de texto de COUNTIF/SUMIF/COUNTIFS/SUMIFS/MAXIFS/MINIFS. Usá comparaciones numéricas, por ejemplo `SUMPRODUCT(--(rango>0.5))`.
+- **Filas con fórmula dentro de Detalle_24m:** las filas «Celdas con dato en el mes» (11, 39, 67, 95, 123, 151, 184, 217 y 245) cuentan los datos cargados y alimentan la guía y Proyeccion_24m. Para limpiar el detalle, borrá solo las filas de datos de cada bloque (por ejemplo F14:AO38), nunca un rango que incluya esas filas.
 - **Producto nuevo** (que no estaba en el plan aprobado): se carga solo en las columnas vigentes (H, J, L, N y el volumen vigente) y deja el presupuesto en blanco.
 - **Registro.** Anotá cada paso en el Claude Log: turno, fecha, qué se probó, resultado y restauración.
 - **Cambios de estructura.** Si hace falta uno, proponelo y no lo apliques: se hace en el generador de Python para que Alianza y la tercera maquila lo hereden.
@@ -121,7 +124,7 @@ Revisá además:
 - Los nombres `Prod_Nombre`, `Vol_O`, `Vol_V` y `c_CapExceso` deben llegar a 25 productos (B6:B30, D34:M58, D63:M87, N92:N116).
 
 **Paso 2 — Estructura de 25 productos.** Corré X2, X3 y V4 del catálogo. X1 es opcional porque es muy laboriosa a mano y ya se validó en LibreOffice:
-- **X2:** las ventas vigentes suben exactamente 2.197.064,63 y los materiales 933.279,30. El presupuesto no cambia.
+- **X2:** las ventas vigentes suben exactamente 2.197.064,63 y los materiales (materia prima + insumos) 933.279,30: materia prima +753.279,30 y insumos +180.000. Los otros variables por unidad suben 60.000 aparte. El presupuesto no cambia.
 - **X3:** C11 en REVISAR.
 - **V4:** C10 en REVISAR con 16.
 

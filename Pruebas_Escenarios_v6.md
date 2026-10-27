@@ -16,8 +16,9 @@ Fecha: 27/10/2026. Repite todas las pruebas de las versiones anteriores sobre la
 | Pruebas de operación (reales congelados, TC, días de cobro, selector, implantación) | 7 | todas | OK |
 | Proyección rodante de 24 meses (Detalle_24m y Proyeccion_24m) | 11 | 60 | OK |
 | Regresión celda por celda de Calculo frente a la v5, con el detalle vacío | 1 | 0 celdas distintas | OK |
+| Validación en Excel 16 (Windows, es-PY) con Claude en Excel, más verificación cruzada | 38 escenarios y pasos 3 a 3d | 439 de Claude en Excel; 342 indicadores y 53.197 celdas comparados con LibreOffice | OK |
 
-**Conclusión: la v6 funciona correctamente.** En ningún caso hubo errores de fórmula y el balance cuadra en todos los meses. La proyección de 24 meses no altera ningún resultado cuando no se usa. Cuando se usa, cambia exactamente los meses de la ventana y por el monto esperado. Las conclusiones financieras de las baterías anteriores siguen vigentes.
+**Conclusión: la v6 funciona correctamente en LibreOffice y en Excel.** En ningún caso hubo errores de fórmula y el balance cuadra en todos los meses. La proyección de 24 meses no altera ningún resultado cuando no se usa. Cuando se usa, cambia exactamente los meses de la ventana y por el monto esperado. Las conclusiones financieras de las baterías anteriores siguen vigentes.
 
 ## Paso 1 — Integridad del libro base
 
@@ -45,7 +46,7 @@ Fecha: 27/10/2026. Repite todas las pruebas de las versiones anteriores sobre la
   - todos los indicadores y la caja mes a mes son iguales a la base, sin alertas de capacidad ni de precio;
   - prueba que los 25 espacios entran en todos los cálculos.
 - **X2, productos nuevos 3, 13 y 25, cargados solo en vigente** (datos de prueba, no comerciales):
-  - las ventas suben 2.197.064,63 y los materiales 933.279,30, exactamente lo esperado;
+  - las ventas suben 2.197.064,63 y los materiales (materia prima + insumos) 933.279,30, exactamente lo esperado; los otros variables por unidad suben 60.000 aparte;
   - el presupuesto original no cambia;
   - el producto 25, último del rango, sí consume materiales.
 - **X3, producto con volumen y sin precio:** se activa la alerta C11. No suma ventas y sí suma costos: por eso el VAN baja.
@@ -194,9 +195,34 @@ Pruebas con datos de prueba (no comerciales), con `probar_detalle.py`:
 
 En todos los casos el presupuesto original no cambió y el balance quedó en 0.
 
+## Paso 13 — Validación en Excel (Claude en Excel, 27/10/2026)
+
+- **Entorno:** Excel 16.0.20527 en Windows, configuración es-PY (coma decimal y punto y coma en las fórmulas), cálculo automático.
+- **Libro devuelto:** `versiones/Modelo_Maquila_ECOSTAR_v6_validacion_Excel.xlsx`. Es la copia de pruebas, con el «Claude Log» de los turnos 9 a 20 y la hoja «Informe_Cierre_v6».
+- **Verificación cruzada:** `modelo/plantilla/comparar_excel.py` compara ese libro con la v6 recalculada en LibreOffice.
+
+| Verificación | Resultado |
+|---|---|
+| Claude en Excel: pasos 0 a 11 (38 escenarios; X1, opcional, no se corrió) | 439 de 439 comprobaciones OK, 0 diferencias |
+| Indicadores de los 38 escenarios informados desde Excel frente a LibreOffice (9 por escenario) | 342 de 342 iguales; diferencia relativa máxima 5 × 10⁻¹⁴ |
+| Valores del caso base, celda por celda, en todas las hojas del modelo (incluye las 43.492 celdas de Calculo) | 53.196 de 53.197 iguales. La única diferencia es de presentación: Guia_Carga!F38 muestra «373.701» en Excel es-PY y «373,701» en LibreOffice, porque FIXED usa el separador regional |
+| Fórmulas y constantes del libro devuelto frente a la v6 original | 53.870 celdas, 0 distintas: la restauración quedó completa |
+| Nombres definidos, validaciones de datos y formato condicional | Iguales. Excel unió en una sola dos validaciones idénticas de Costos, sin efecto |
+| Errores de celda, referencias circulares y vínculos externos | Ninguno |
+
+- **Incidencia durante la prueba:**
+  - al limpiar Detalle_24m con un rango amplio (F10:AO250), Claude en Excel borró las fórmulas de las 9 filas «Celdas con dato en el mes»;
+  - las restauró desde la columna AP y la comparación confirma que quedaron idénticas a las originales;
+  - el prompt v6 y el paso a paso ahora indican borrar solo las filas de datos.
+- **Observación de redacción en X2:** «materiales 933.279,30» es materia prima (753.279,30) más insumos (180.000); los otros variables por unidad (+60.000) van en una fila aparte. Se aclaró en el prompt y en este informe.
+- **Por qué 439 y no 495:** los conteos son distintos.
+  - Claude en Excel compara 9 indicadores por escenario, más los pasos de operación y de detalle.
+  - La batería de LibreOffice suma, además, verificaciones mes a mes (31 tipos).
+  - Los dos cubren los mismos escenarios, salvo X1.
+
 ## Conclusión
 
-La v6 está validada técnicamente y las recomendaciones de la batería anterior siguen vigentes:
+La v6 está validada técnicamente en LibreOffice y en Excel, y las recomendaciones de la batería anterior siguen vigentes:
 
 - Largo plazo para la inversión y el capital de trabajo permanente, más una línea rotativa comprometida de 0,5 a 1,0 M para los años 2 a 4.
 - Cuidar, en este orden, el costo unitario, los días de cobro y el tipo de cambio.
@@ -213,4 +239,5 @@ MODELO="Ecostar v6" LIBRO=Modelo_Maquila_ECOSTAR_v6.xlsx FECHA=27/10/2026 \
   python3 modelo/plantilla/informe_escenarios.py carpeta/escenarios.pkl Pruebas_Escenarios_ECOSTAR_v6.xlsx [referencia.pkl]
 python3 modelo/plantilla/probar_plantilla.py Modelo_Maquila_ECOSTAR_v6.xlsx recalc.py carpeta_operacion
 python3 modelo/plantilla/probar_detalle.py   Modelo_Maquila_ECOSTAR_v6.xlsx recalc.py carpeta_detalle
+python3 modelo/plantilla/comparar_excel.py   Modelo_Maquila_ECOSTAR_v6.xlsx libro_devuelto_por_Excel.xlsx carpeta/escenarios.pkl
 ```
