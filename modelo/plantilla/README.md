@@ -44,7 +44,7 @@ Para generar el libro de otro negocio desde código, hay que crear `datos_<negoc
 
 ```bash
 python3 probar_plantilla.py   libro.xlsx recalc.py carpeta   # reales congelados, TC, días, atraso, implantación
-python3 probar_escenarios.py  libro.xlsx recalc.py carpeta   # 36 escenarios (genera escenarios.pkl)
+python3 probar_escenarios.py  libro.xlsx recalc.py carpeta   # 39 escenarios (genera escenarios.pkl)
 python3 informe_escenarios.py carpeta/escenarios.pkl ../../Pruebas_Escenarios_ECOSTAR_v6.xlsx [referencia.pkl]   # resumen, verificaciones y regresión
 python3 probar_detalle.py     libro.xlsx recalc.py carpeta   # proyección rodante de 24 meses (60 comprobaciones)
 ```
