@@ -6,6 +6,7 @@
 | `Modelo_Maquila_ECOSTAR_v2.xlsx` | Salida directa del generador (misma estructura que la v4, sin las hojas de registro). |
 | `Plantilla_Maquila_Comun.xlsx` | Plantilla vacía para Alianza del Acero y la tercera maquila. |
 | `Informe_Plantilla_Comun_v2.md` | Evaluación de Alianza del Acero, cambios v1 → v2, resultados y guía de carga. |
+| `Conciliacion_Plan_vs_Modelo_ECOSTAR.md` | Conciliación del modelo con el plan de negocio (Oct-2025): trazabilidad de cada dato a su página, diferencias línea por línea y puente del EBITDA. |
 | `Pruebas_Escenarios_v4.md` / `Pruebas_Escenarios_ECOSTAR_v4.xlsx` | Pruebas paso a paso de la v4: 39 escenarios, 7 pruebas de operación y regresión frente a 12 productos (489/489 OK). |
 | `Pruebas_Escenarios_v2.md` / `Pruebas_Escenarios_ECOSTAR_v2.xlsx` | Batería de 36 escenarios (financiamiento, cobranza, costos, ventas, plazos, corto vs largo plazo, TC) y verificaciones del motor. |
 | `Prompt_Claude_Excel_ECOSTAR_v4.md` | Prompt para que Claude en Excel evalúe la v4 paso a paso (celdas v4, 39 escenarios con valores esperados, prueba de reales). |
