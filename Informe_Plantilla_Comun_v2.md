@@ -20,7 +20,7 @@ Además, su VAN mezcla el flujo del proyecto con el del financiamiento.
 
 La plantilla v2 toma esas salidas y las construye sobre un motor único, con estas características:
 
-- 9 hojas de trabajo, más una «Guía de carga» con estado automático (agregada en la v5);
+- 9 hojas de trabajo, más una «Guía de carga» con estado automático (v5) y la proyección rodante de 24 meses: «Detalle_24m» para cargar y «Proyeccion_24m» para leer (v6);
 - cada dato se carga una sola vez;
 - presupuesto original, reales y proyección vigente separados;
 - los escenarios solo afectan los meses posteriores al último cierre.
@@ -95,7 +95,9 @@ La lógica general es razonable, pero la información está dispersa y repetida,
 | Hoja | Contenido | ¿Se carga? |
 |---|---|---|
 | Inicio | Nombre, etapa (Implantación/Operación), fecha del mes 1, último mes cerrado, mes real de inicio, escenario. Estado, instrucciones y pendientes. | Sí |
-| Guia_Carga | 28 pasos (alta, presupuesto, vigente, cierre mensual, revisión) con vínculo a la celda, fuente, criterio y estado automático. | Hecho / fecha / responsable |
+| Guia_Carga | 37 pasos (alta, presupuesto, vigente, cierre mensual, revisión, proyección de 24 meses y revisión del plan) con vínculo a la celda, fuente, criterio y estado automático. | Hecho / fecha / responsable |
+| Detalle_24m | Proyección mes a mes de la ventana móvil (24 meses después del último cierre): TC, volúmenes, precios, costos de materiales, dotación, salarios y costos fijos. Celda vacía = supuesto anual. | Sí (meses de la ventana) |
+| Proyeccion_24m | Vista de los próximos 24 meses: resultado, caja, deuda y desvíos frente al presupuesto, con totales por año de la ventana. | No |
 | Supuestos | Parámetros generales, supuestos por año (TC, variaciones de precio/costos/salarios, dividendos), escenarios y referencia del plan publicado. | Sí |
 | Productos | Hasta 25 productos individuales: precio, materia prima, insumos y otros variables por unidad; capacidad y volúmenes por año. | Sí |
 | Costos | Hasta 30 puestos (clase, moneda, salario, dotación por año) y 25 costos fijos (moneda, crecimiento, año de inicio, IVA, base de imprevistos). | Sí |

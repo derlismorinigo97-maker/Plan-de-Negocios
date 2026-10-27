@@ -2,8 +2,8 @@
 
 **Cómo usarlo**
 
-1. Abrir `Modelo_Maquila_ECOSTAR_v5.xlsx` (de preferencia una copia) y el panel de Claude. También sirve para la v4 y la v2.
-2. Para mejores resultados, pegar primero `Prompt_Claude_Excel_ECOSTAR_v4.md` (o el `…_v2.md` si usás la v2), que da el contexto, las celdas clave y los valores de referencia. Después pegar este prompt en el mismo chat. Este prompt también funciona solo.
+1. Abrir `Modelo_Maquila_ECOSTAR_v6.xlsx` (de preferencia una copia) y el panel de Claude. También sirve para versiones anteriores (sin los módulos que no existan en ellas).
+2. Para mejores resultados, pegar primero `Prompt_Claude_Excel_ECOSTAR_v6.md` (o el de la versión que uses), que da el contexto, las celdas clave y los valores de referencia. Después pegar este prompt en el mismo chat. Este prompt también funciona solo.
 3. Pegar todo el texto que está debajo de la línea «COPIAR DESDE AQUÍ».
 
 ---- COPIAR DESDE AQUÍ ----
@@ -49,6 +49,7 @@ El libro es el modelo de **Ecostar** (maquila CIE–PERG de gabinetes y cajas me
 10. Controles: qué significa cada alerta y qué hacer
 11. Rutina, versiones y comunicación a la Gerencia
 12. Errores frecuentes
+13. Proyección rodante de 24 meses (Detalle_24m) y revisión del plan a 10 años
 
 ## Contenido y criterios de cada módulo
 
@@ -225,6 +226,38 @@ Para cada alerta, explicame la causa probable en este libro y la acción concret
 8. Porcentajes cargados como 5 en lugar de 0,05.
 9. Leer una TIR alta como si el negocio no necesitara financiamiento.
 10. Comparar la TIR de los socios con el WACC, o la del proyecto con Ke.
+11. Cargar en Detalle_24m meses que quedan fuera de la ventana y creer que ya se usan, o no agregar el nuevo último mes después de cada cierre.
+
+### 13. Proyección rodante de 24 meses y revisión del plan (v6)
+
+- **Estructura:**
+  - meses cerrados = Reales;
+  - los 24 meses siguientes = Detalle_24m, donde hay dato;
+  - el resto, hasta los 10 años = supuestos anuales vigentes.
+- **Ventana (Inicio!C14):** 24 meses por defecto. Es móvil: con cada cierre avanza un mes, y hay que completar el nuevo último mes (la Guía, sección F, avisa).
+- **Qué cargar mes a mes:** solo lo que está asegurado o tiene evidencia. Por ejemplo:
+  - pedidos confirmados (volúmenes);
+  - contratos y listas de precios;
+  - cotizaciones de materia prima;
+  - plan de ingresos y ajustes salariales (dotación y salario por puesto);
+  - contratos de costos fijos;
+  - TC presupuestado.
+
+  Celda vacía = supuesto anual. No hace falta completar todo.
+- **Reglas del motor:**
+  - el detalle solo afecta la proyección vigente; el presupuesto original sigue anual;
+  - el volumen detallado se aplica desde el inicio de operación;
+  - los escenarios (Conservador u Optimista) se aplican también sobre el detalle;
+  - los salarios y costos fijos se cargan en la moneda del puesto o concepto (hoja Costos).
+- **Lectura:** Proyeccion_24m muestra mes a mes la caja, la deuda y los desvíos frente al presupuesto. Resultados mantiene la vista anual a 10 años.
+- **Revisión del plan (Inicio!C15:C17):**
+  - **Anual (recomendada):** cada año el año 1 queda firme y se actualiza el año 2.
+  - **Bienal:** menos trabajo, pero más riesgo de que el plan quede desactualizado frente al TC y a los costos.
+  - **En la revisión:**
+    1. guardar una copia del archivo del plan anterior;
+    2. pasar al presupuesto original los supuestos vigentes aprobados;
+    3. actualizar la versión y la fecha de aprobación.
+- **Criterio:** la revisión del plan no reemplaza el seguimiento mensual. Si un desvío es grande (por ejemplo costo unitario o TC), conviene revisar antes de la fecha programada.
 
 ## Para empezar
 

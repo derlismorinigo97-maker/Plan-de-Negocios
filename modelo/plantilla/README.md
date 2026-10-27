@@ -1,6 +1,6 @@
 # Plantilla común de maquilas (v2)
 
-Este generador produce el libro de cada negocio con la misma estructura de 10 hojas: Inicio, Guia_Carga (guía de carga con estado automático), Supuestos, Productos, Costos, Inversion, Reales, Calculo, Resultados y Control. El documento `../../Informe_Plantilla_Comun_v2.md` explica el diseño, los criterios y la carga.
+Este generador produce el libro de cada negocio con la misma estructura de 12 hojas: Inicio, Guia_Carga (guía de carga con estado automático), Supuestos, Productos, Costos, Inversion, Detalle_24m (proyección mes a mes de la ventana móvil), Reales, Calculo, Proyeccion_24m (vista de los próximos 24 meses), Resultados y Control. El documento `../../Informe_Plantilla_Comun_v2.md` explica el diseño, los criterios y la carga.
 
 ## Generar
 
@@ -62,3 +62,4 @@ python3 informe_escenarios.py carpeta/escenarios.pkl ../../Pruebas_Escenarios_EC
 | Implantación (inicio en el mes 7) | Personal parcial y costos «desde año 0» en los meses 1-6, ventas desde el mes 7, depreciación desde la puesta en servicio. |
 | Batería de 36 escenarios (12 productos) | 385/385 verificaciones OK. Detalle en `../../Pruebas_Escenarios_v2.md`. |
 | Batería v4 (25 productos): 39 escenarios + regresión | 489/489 verificaciones OK, mismos resultados que con 12 productos. Detalle en `../../Pruebas_Escenarios_v4.md`. |
+| v6: proyección rodante de 24 meses (27/10/2026) | Con Detalle_24m vacío, Calculo idéntico a la v5 (0 celdas distintas). 25 pruebas de detalle OK: volumen, precio, materiales, personal, fijos, TC, ventana móvil con cierre, escenario y ventana de 12 meses; balance 0. |

@@ -84,7 +84,7 @@ CEN = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
 wb = Workbook()
 wb.remove(wb.active)
-SHEETS = ["Inicio", "Guia_Carga", "Supuestos", "Productos", "Costos", "Inversion", "Reales", "Calculo", "Resultados", "Control"]
+SHEETS = ["Inicio", "Guia_Carga", "Supuestos", "Productos", "Costos", "Inversion", "Detalle_24m", "Reales", "Calculo", "Proyeccion_24m", "Resultados", "Control"]
 WS = {s: wb.create_sheet(s) for s in SHEETS}
 CUR = [None]
 
@@ -181,6 +181,13 @@ def build_inicio():
          "Cargar cuando la operación ya comenzó. Prevalece sobre el supuesto vigente y el atraso del escenario."),
         ("n_Escenario", "Escenario para la proyección", D.get("escenario") or "Vigente", None,
          "Vigente (sin ajustes), Conservador u Optimista. Solo afecta los meses posteriores al corte."),
+        ("n_Ventana", "Meses de proyección detallada (ventana móvil)", D.get("ventana", 24), NF_N,
+         "Meses siguientes al último cierre que usan el detalle mensual de Detalle_24m (recomendado 24). Después, supuestos anuales."),
+        ("n_Version", "Versión del plan aprobado (presupuesto original)", D.get("version_plan"), None, "Ej.: Plan Oct-2025; Revisión 2027."),
+        ("n_FechaRev", "Fecha de aprobación de la última revisión del plan", D.get("fecha_revision"), NF_DATE,
+         "Con la frecuencia, define la próxima revisión del plan a 10 años."),
+        ("n_Frecuencia", "Frecuencia de revisión del plan", D.get("frecuencia", "Anual"), None,
+         "Anual (año 1 firme + año 2 actualizado) o Bienal. El detalle de 24 meses se actualiza en cada cierre."),
     ]
     for name, lab, val, fmt, ins in rows:
         put(ws, r, 2, lab)
@@ -191,6 +198,8 @@ def build_inicio():
             dv(ws, f"C{r}", ["Implantación", "Operación"])
         if name == "n_Escenario":
             dv(ws, f"C{r}", ["Vigente", "Conservador", "Optimista"])
+        if name == "n_Frecuencia":
+            dv(ws, f"C{r}", ["Anual", "Bienal"])
         r += 1
     put(ws, r, 2, "Moneda de presentación")
     put(ws, r, 3, "USD (costos en Gs convertidos con el TC de cada año)")
@@ -204,6 +213,8 @@ def build_inicio():
         ("Controles con alerta (hoja Control)", "=c_Alertas"),
         ("Brecha de caja máxima vigente (USD)", "=r_BrechaV"),
         ("Pasos de la Guía de carga con alerta (⚠)", "=g_Pendientes"),
+        ("Ventana de proyección detallada", '=IF(N(n_Ventana)=0,"Sin detalle mensual","Meses "&(Corte+1)&" a "&MIN(144,Corte+n_Ventana))'),
+        ("Próxima revisión del plan", '=IF(ISNUMBER(n_FechaRev),DAY(EDATE(n_FechaRev,IF(n_Frecuencia="Bienal",24,12)))&"/"&MONTH(EDATE(n_FechaRev,IF(n_Frecuencia="Bienal",24,12)))&"/"&YEAR(EDATE(n_FechaRev,IF(n_Frecuencia="Bienal",24,12))),"Sin fecha de revisión")'),
     ]
     for lab, f in est:
         put(ws, r, 2, lab)
@@ -213,6 +224,9 @@ def build_inicio():
     section(ws, r, "3. Cómo cargar y actualizar", 4); r += 1
     pasos = [
         ("Paso a paso", "Seguir la hoja Guia_Carga: cada paso tiene vínculo a la celda, fuente, criterio y estado automático."),
+        ("Proyección 24 meses", "En Detalle_24m cargar mes a mes lo asegurado para los próximos meses (volúmenes, precios, costos, personal, fijos, TC). "
+                                "Celda vacía = supuesto anual. Con cada cierre la ventana avanza un mes: completar el nuevo último mes."),
+        ("Revisión del plan", "Anual o bienal: el plan aprobado (presupuesto original, 10 años) se actualiza con los supuestos vigentes aprobados; guardar la versión anterior."),
         ("Alta de un negocio", "Copiar el archivo vacío, completar la sección 1 y luego las hojas en este orden: Supuestos → Productos → Costos → Inversion."),
         ("Presupuesto original", "Cargar en las columnas «Presupuesto original» los datos del plan aprobado. No se modifican después: son la referencia de comparación."),
         ("Proyección vigente", "Las columnas «Vigente» heredan el presupuesto (gris). Sobrescribir solo lo que cambió; la celda pasa a azul/amarillo y Control lo cuenta."),
@@ -247,9 +261,11 @@ def build_inicio():
              ("Productos", f"Hasta {NP} productos: precio, costos unitarios, capacidad y volumen anual (presupuesto y vigente)."),
              ("Costos", "Personal por puesto (dotación por año) y costos fijos (moneda, crecimiento, inicio)."),
              ("Inversion", "CAPEX por ítem (presupuesto, ejecutado, comprometido, por contratar), préstamos y aportes."),
+             ("Detalle_24m", "Proyección mes a mes de la ventana móvil (por defecto 24 meses): volúmenes, precios, costos, personal, fijos y TC."),
              ("Reales", "Carga mensual de la ejecución y saldos al cierre (formato fijo: un dato por celda)."),
              ("Calculo", "Motor mensual automático (no editar). Bloque P = presupuesto; bloque V = vigente."),
-             ("Resultados", "Indicadores, resúmenes anuales, desvíos y gráficos."),
+             ("Proyeccion_24m", "Vista mensual de los próximos 24 meses (vigente vs presupuesto) con totales por año de ventana."),
+             ("Resultados", "Indicadores, resúmenes anuales (10 años), desvíos y gráficos."),
              ("Control", "Validaciones y datos faltantes.")]
     for a, b in hojas:
         put(ws, r, 2, a, font=F_B)
@@ -853,6 +869,92 @@ def build_reales():
     ws.freeze_panes = f"{M1}{RR['hdr'] + 4}"
 
 
+# ============================================================================ DETALLE 24 MESES
+DT = {}
+DET_BLOQUES = [  # código, título, filas, unidad, referencia anual (fórmula para el índice i, 1..n)
+    ("TC", "A. Tipo de cambio del mes (Gs/USD)", 1, "Gs/USD", lambda i: "=INDEX(TC_V,1,1)"),
+    ("Q", "B. Volumen de ventas por producto (unidades del mes)", NP, "u", lambda i: f"=INDEX(Vol_V,{i},1)/12"),
+    ("P", "C. Precio de venta por producto (USD por unidad)", NP, "USD/u", lambda i: f"=INDEX(Precio_V,{i})"),
+    ("MP", "D. Materia prima por unidad (USD)", NP, "USD/u", lambda i: f"=INDEX(MP_V,{i})"),
+    ("IN", "E. Insumos por unidad (USD)", NP, "USD/u", lambda i: f"=INDEX(INS_V,{i})"),
+    ("OV", "F. Otros costos variables por unidad (USD)", NP, "USD/u", lambda i: f"=INDEX(OV_V,{i})"),
+    ("DO", "G. Dotación por puesto (personas en el mes)", NPER, "pers.", lambda i: f"=INDEX(Dot_V,{i},1)"),
+    ("SA", "H. Salario mensual por puesto (moneda del puesto, sin cargas)", NPER, "mon", lambda i: f"=INDEX(Sal_V,{i})"),
+    ("FC", "I. Costos fijos: monto del mes por concepto (moneda del concepto)", NFIJ, "mon", lambda i: f"=INDEX(FC_V,{i})"),
+]
+
+
+def build_detalle():
+    ws = WS["Detalle_24m"]
+    title(ws, "Detalle_24m — proyección mes a mes de la ventana móvil (vigente)",
+          "Celda vacía = usa el supuesto anual vigente. Solo se usan los meses de la ventana (amarillo): del mes siguiente al último cierre hasta el mes Corte + n_Ventana.")
+    widths(ws, {"A": 7, "B": 46, "C": 9, "D": 14, "E": 4})
+    for m in range(1, N + 1):
+        ws.column_dimensions[mc(m)].width = 10
+    r = 4
+    labels = [("Mes n°", None), ("Fecha", NF_MES), ("Año del modelo", NF_N), ("Estado", None)]
+    for i, (lab, fmt) in enumerate(labels):
+        put(ws, r + i, 2, lab, font=F_H, fill=FL_H)
+        for c in (1, 3, 4, 5):
+            ws.cell(row=r + i, column=c).fill = FL_H
+        for m in range(1, N + 1):
+            v = [m, f'=IF(n_Fecha1="","",EOMONTH(n_Fecha1,{m}-1))', f"=ROUNDUP({m}/12,0)",
+                 f'=IF({m}<=Corte,"Real",IF({m}<=Corte+n_Ventana,"Ventana","Anual"))'][i]
+            put(ws, r + i, FCOL + m - 1, v, font=F_H, fill=FL_H, fmt=fmt, al=CEN)
+    put(ws, r, 4, "Ref. anual", font=F_H, fill=FL_H)
+    DT["hdr"] = r
+    put(ws, 3, 2, '=HYPERLINK("#Detalle_24m!"&ADDRESS(9,MIN(149,5+Corte+1),4),"→ Ir al primer mes de la ventana: mes "&(Corte+1))',
+        font=Font(name=FONT, size=9, color="0563C1", underline="single"))
+    r += 5
+    per_rows = lambda j: f"Costos!$B${CO['per_first'] + j - 1}"
+    for code, tit, n, unit, ref in DET_BLOQUES:
+        section(ws, r, tit, 5)
+        r += 1
+        DT[code + "_first"] = r
+        for i in range(1, n + 1):
+            rr = r
+            DT[f"{code}{i}"] = rr
+            put(ws, rr, 1, f"{code}{i}" if n > 1 else code, font=F_S)
+            if code == "TC":
+                put(ws, rr, 2, "Tipo de cambio del mes")
+                put(ws, rr, 3, unit)
+            elif code in ("Q", "P", "MP", "IN", "OV"):
+                put(ws, rr, 2, f'=IF(INDEX(Prod_Nombre,{i})="","Producto {i}",INDEX(Prod_Nombre,{i}))', font=F_LINK)
+                put(ws, rr, 3, unit)
+            elif code in ("DO", "SA"):
+                put(ws, rr, 2, f'=IF({per_rows(i)}="","Puesto {i}",{per_rows(i)})', font=F_LINK)
+                put(ws, rr, 3, unit if code == "DO" else f'=IF(Costos!$D${CO["per_first"] + i - 1}="","",Costos!$D${CO["per_first"] + i - 1})', font=F_LINK)
+            else:
+                put(ws, rr, 2, f'=IF(Costos!$B${CO["fc_first"] + i - 1}="","Concepto {i}",Costos!$B${CO["fc_first"] + i - 1})', font=F_LINK)
+                put(ws, rr, 3, f'=IF(Costos!$D${CO["fc_first"] + i - 1}="","",Costos!$D${CO["fc_first"] + i - 1})', font=F_LINK)
+            put(ws, rr, 4, ref(i), fmt=NF_USD2, font=F_S)
+            r += 1
+        DT[code + "_last"] = r - 1
+        put(ws, r, 2, "Celdas con dato en el mes", font=F_S)
+        for m in range(1, N + 1):
+            put(ws, r, FCOL + m - 1, f"=COUNT({mc(m)}{DT[code + '_first']}:{mc(m)}{DT[code + '_last']})", font=F_S, fmt=NF_N)
+        nm(f"Det_n{code}", "Detalle_24m", f"{M1}{r}:{MN}{r}")
+        r += 2
+    hdr = DT["hdr"]
+    area = f"{M1}{DT['TC_first']}:{MN}{r}"
+    ws.conditional_formatting.add(area, FormulaRule(formula=[f"AND({M1}${hdr}>Corte,{M1}${hdr}<=Corte+n_Ventana)"], fill=FL_IN,
+                                                     font=Font(name=FONT, size=9, color="0000FF")))
+    ws.conditional_formatting.add(area, FormulaRule(formula=[f"{M1}${hdr}<=Corte"], fill=FL_INH))
+    ws.conditional_formatting.add(f"{M1}{hdr + 3}:{MN}{hdr + 3}", CellIsRule(operator="equal", formula=['"Ventana"'], fill=FL_V,
+                                                                         font=Font(name=FONT, size=9, bold=True, color="000000")))
+    put(ws, r, 2, "Montos de salarios y costos fijos en la moneda definida en Costos (PYG o USD). Volumen: se usa desde el inicio de operación.", font=F_S)
+    ws.freeze_panes = f"{M1}{hdr + 4}"
+
+
+def dcol(code, m, n):
+    """Columna del mes m de un bloque de Detalle_24m (n filas)."""
+    return f"Detalle_24m!{mc(m)}${DT[code + '1']}:{mc(m)}${DT[code + str(n)]}"
+
+
+def dcell(code, m):
+    return f"Detalle_24m!{mc(m)}${DT[code]}"
+
+
 # ============================================================================ CALCULO
 ROW = {}
 CUR = ["Calculo"]
@@ -894,6 +996,8 @@ def version_rows(X):
     def R(code, m, fc):
         return f"=IF({A('real', m)}=1,{rv(code, m)},{fc})" if real else f"={fc}"
 
+    win = lambda m: f"AND({m}>Corte,{m}<=Corte+n_Ventana)"          # ventana de detalle mensual (solo vigente)
+    wn = lambda m: f"({m}>Corte)*({m}<=Corte+n_Ventana)"
     rows = []
     rows.append(("sec", "Calendario de la versión"))
     rows += [
@@ -901,30 +1005,54 @@ def version_rows(X):
         ("op", "Operación (1/0)", "1/0", lambda m: f"=IF({a('aop', m)}>0,1,0)", NF_N, "sum"),
         ("pre", "Implantación: antes del inicio de operación (1/0)", "1/0", lambda m: f"=IF(AND({m}<{X}_Inicio,{m}<=Fin),1,0)", NF_N, "sum"),
         ("ya", "Índice de año para crecimientos (mín. 1)", "n°", lambda m: f"=MAX(1,{a('aop', m)})", NF_N, None),
-        ("tc", "Tipo de cambio aplicado (Gs/USD)", "Gs/USD", lambda m: f"=INDEX(TC_{O},1,MIN({NY},{A('anio', m)}))*(1+{X}_dTC)", NF_INT, None),
+        ("tc", "Tipo de cambio aplicado (Gs/USD)", "Gs/USD",
+         (lambda m: (f"=IF(AND({win(m)},ISNUMBER({dcell('TC1', m)})),{dcell('TC1', m)},INDEX(TC_{O},1,MIN({NY},{A('anio', m)})))*(1+{X}_dTC)" if real
+                     else f"=INDEX(TC_{O},1,MIN({NY},{A('anio', m)}))*(1+{X}_dTC)")), NF_INT, None),
         ("itc", "Inverso del TC (0 si falta el TC)", "", lambda m: f"=IF({a('tc', m)}>0,1/{a('tc', m)},0)", NF_USD4, None),
     ]
     rows.append(("sec", "Ventas"))
     for i in range(NP):
         rows.append((f"u{i + 1}", f'=IF(INDEX(Prod_Nombre,{i + 1})="","Producto {i + 1}",INDEX(Prod_Nombre,{i + 1}))&" — unidades"', "u",
-                     (lambda m, i=i: (f"=IF({A('real', m)}=1,{rv('U' + str(i + 1), m)},IF({a('op', m)}=1,INDEX(Vol_{O},{i + 1},{a('aop', m)})/12*(1+{X}_dVol),0))"
+                     (lambda m, i=i: (f"=IF({A('real', m)}=1,{rv('U' + str(i + 1), m)},IF({a('op', m)}=1,IF(AND({win(m)},ISNUMBER({dcell('Q' + str(i + 1), m)})),"
+                                      f"{dcell('Q' + str(i + 1), m)},INDEX(Vol_{O},{i + 1},{a('aop', m)})/12)*(1+{X}_dVol),0))"
                                       if real else f"=IF({a('op', m)}=1,INDEX(Vol_{O},{i + 1},{a('aop', m)})/12*(1+{X}_dVol),0)")), NF_INT, "sum"))
     for i in range(NP):
-        fc = lambda m, i=i: f"{a('u' + str(i + 1), m)}*INDEX(Precio_{O},{i + 1})*INDEX(IdxPrecio_{O},1,MIN({NY},{a('ya', m)}))*(1+{X}_dPrecio)"
+        if real:
+            fc = lambda m, i=i: (f"{a('u' + str(i + 1), m)}*IF(AND({win(m)},ISNUMBER({dcell('P' + str(i + 1), m)})),{dcell('P' + str(i + 1), m)},"
+                                 f"INDEX(Precio_{O},{i + 1})*INDEX(IdxPrecio_{O},1,MIN({NY},{a('ya', m)})))*(1+{X}_dPrecio)")
+        else:
+            fc = lambda m, i=i: f"{a('u' + str(i + 1), m)}*INDEX(Precio_{O},{i + 1})*INDEX(IdxPrecio_{O},1,MIN({NY},{a('ya', m)}))*(1+{X}_dPrecio)"
         rows.append((f"s{i + 1}", f'=IF(INDEX(Prod_Nombre,{i + 1})="","Producto {i + 1}",INDEX(Prod_Nombre,{i + 1}))&" — ventas USD"', "USD",
                      (lambda m, i=i, fc=fc: R("S" + str(i + 1), m, fc(m))), NF_USD, "sum"))
     rows.append(("vtas", "VENTAS TOTALES", "USD", lambda m: f"=SUM({a('s1', m)}:{a('s' + str(NP), m)})", NF_USD, "sum", True))
     urng = lambda m: f"{mc(m)}{ROW[K('u1')]}:{mc(m)}{ROW[K('u' + str(NP))]}"
     yi = lambda nmx, m: f"INDEX({nmx}_{O},1,MIN({NY},{a('ya', m)}))"
     rows.append(("sec", "Costos de la proyección (en meses reales se reemplazan por Reales)"))
+    def matv(code, nmx, idx):
+        if not real:
+            return lambda m: f"=SUMPRODUCT({urng(m)},{nmx}_{O})*{yi(idx, m)}*(1+{X}_dMat)/(1-{X}_Merma)"
+        return lambda m: (f"=SUMPRODUCT({urng(m)},{wn(m)}*ISNUMBER({dcol(code, m, NP)})*{dcol(code, m, NP)}"
+                          f"+(1-{wn(m)}*ISNUMBER({dcol(code, m, NP)}))*{nmx}_{O}*{yi(idx, m)})*(1+{X}_dMat)/(1-{X}_Merma)")
     rows += [
-        ("mp_f", "Materia prima", "USD", lambda m: f"=SUMPRODUCT({urng(m)},MP_{O})*{yi('IdxMP', m)}*(1+{X}_dMat)/(1-{X}_Merma)", NF_USD, "sum"),
-        ("ins_f", "Insumos", "USD", lambda m: f"=SUMPRODUCT({urng(m)},INS_{O})*{yi('IdxOV', m)}*(1+{X}_dMat)/(1-{X}_Merma)", NF_USD, "sum"),
-        ("ov_f", "Otros costos variables por unidad", "USD", lambda m: f"=SUMPRODUCT({urng(m)},OV_{O})*{yi('IdxOV', m)}*(1+{X}_dMat)/(1-{X}_Merma)", NF_USD, "sum"),
+        ("mp_f", "Materia prima", "USD", matv("MP", "MP", "IdxMP"), NF_USD, "sum"),
+        ("ins_f", "Insumos", "USD", matv("IN", "INS", "IdxOV"), NF_USD, "sum"),
+        ("ov_f", "Otros costos variables por unidad", "USD", matv("OV", "OV", "IdxOV"), NF_USD, "sum"),
         ("desp_f", "Despacho de importación", "USD", lambda m: f"={X}_Desp*({a('mp_f', m)}+{a('ins_f', m)})", NF_USD, "sum"),
     ]
     act = lambda m, coef: f"({a('op', m)}+{a('pre', m)}*{coef})"
     for cls, k, coef in [("Directo", "dir", f"{X}_PreDir"), ("Indirecto", "ind", f"{X}_PreInd"), ("Administración", "adm", f"{X}_PreInd")]:
+        if real:
+            dot = lambda m, coef=coef: (f"({wn(m)}*ISNUMBER({dcol('DO', m, NPER)})*{dcol('DO', m, NPER)}+(1-{wn(m)}*ISNUMBER({dcol('DO', m, NPER)}))"
+                                        f"*INDEX(Dot_{O},0,MIN({NY},{a('ya', m)}))*{act(m, coef)})")
+            sal = lambda m: (f"({wn(m)}*ISNUMBER({dcol('SA', m, NPER)})*{dcol('SA', m, NPER)}+(1-{wn(m)}*ISNUMBER({dcol('SA', m, NPER)}))"
+                             f"*Sal_{O}*{yi('IdxSal', m)})")
+            rows.append((f"{k}_n", f"Personas activas — {cls}", "pers.",
+                         (lambda m, cls=cls, dot=dot: f'=SUMPRODUCT((Per_Clase="{cls}")*{dot(m)})'), NF_USD2, None))
+            rows.append((f"{k}_f", f"Personal — {cls} (salarios, cargas y alimentación)", "USD",
+                         (lambda m, cls=cls, k=k, dot=dot, sal=sal: (
+                             f'=SUMPRODUCT((Per_Clase="{cls}")*{sal(m)}*{dot(m)}*((Per_Mon="PYG")*{a("itc", m)}+(Per_Mon<>"PYG")))'
+                             f"*(1+{X}_Cargas)+{a(k + '_n', m)}*{X}_Alim*{a('itc', m)}")), NF_USD, "sum"))
+            continue
         rows.append((f"{k}_n", f"Personas activas — {cls}", "pers.",
                      (lambda m, cls=cls, coef=coef: f'=SUMPRODUCT((Per_Clase="{cls}")*INDEX(Dot_{O},0,MIN({NY},{a("ya", m)})))*{act(m, coef)}'), NF_USD2, None))
         rows.append((f"{k}_f", f"Personal — {cls} (salarios, cargas y alimentación)", "USD",
@@ -932,7 +1060,11 @@ def version_rows(X):
                          f'=SUMPRODUCT((Per_Clase="{cls}")*Sal_{O}*INDEX(Dot_{O},0,MIN({NY},{a("ya", m)}))*((Per_Mon="PYG")*{a("itc", m)}+(Per_Mon<>"PYG")))'
                          f"*{act(m, coef)}*{yi('IdxSal', m)}*(1+{X}_Cargas)+{a(k + '_n', m)}*{X}_Alim*{a('itc', m)}")), NF_USD, "sum"))
     fcact = lambda m: f"((FC_Desde=0)*({a('pre', m)}+{a('op', m)})+(FC_Desde>=1)*({a('aop', m)}>=FC_Desde)*{a('op', m)})"
-    fcusd = lambda m: f"FC_{O}*((FC_Mon=\"PYG\")*{a('itc', m)}+(FC_Mon<>\"PYG\"))*(1+FC_g)^({a('ya', m)}-1)*{fcact(m)}"
+    if real:
+        fcusd = lambda m: (f"((FC_Mon=\"PYG\")*{a('itc', m)}+(FC_Mon<>\"PYG\"))*({wn(m)}*ISNUMBER({dcol('FC', m, NFIJ)})*{dcol('FC', m, NFIJ)}"
+                           f"+(1-{wn(m)}*ISNUMBER({dcol('FC', m, NFIJ)}))*FC_{O}*(1+FC_g)^({a('ya', m)}-1)*{fcact(m)})")
+    else:
+        fcusd = lambda m: f"FC_{O}*((FC_Mon=\"PYG\")*{a('itc', m)}+(FC_Mon<>\"PYG\"))*(1+FC_g)^({a('ya', m)}-1)*{fcact(m)}"
     rows += [
         ("pkg_f", "Packaging", "USD", lambda m: f"={X}_Pkg*({a('mp_f', m)}+{a('ins_f', m)}+{a('ov_f', m)}+{a('dir_f', m)})", NF_USD, "sum"),
         ("vs_f", "Seguro de caución, comisiones y logística de venta", "USD", lambda m: f"=({X}_SegV+{X}_ComV)*{a('vtas', m)}", NF_USD, "sum"),
@@ -1389,6 +1521,102 @@ def add_charts(ws, anchor):
     ws.add_chart(ch2, f"F{anchor + 2}")
 
 
+# ============================================================================ PROYECCION 24 MESES
+NV = 24
+
+
+def build_proy():
+    ws = WS["Proyeccion_24m"]
+    title(ws, "Proyección de los próximos 24 meses — vigente (real hasta el corte + detalle mensual + supuestos anuales)")
+    put(ws, 2, 1, '="Meses "&(Corte+1)&" a "&MIN(144,Corte+24)&" del modelo   |   Escenario: "&n_Escenario&"   |   Ventana de detalle: "&n_Ventana&" meses"', font=F_AL)
+    widths(ws, {"A": 8, "B": 44, "C": 13, "D": 13, "E": 13})
+    for k in range(1, NV + 1):
+        ws.column_dimensions[CL(5 + k)].width = 11
+    r = 4
+    heads = [("Mes de la proyección", lambda k: k, NF_N), ("Mes del modelo", lambda k: f"=Corte+{k}", NF_N),
+             ("Fecha", lambda k: f'=IF(OR(n_Fecha1="",Corte+{k}>{N}),"",EOMONTH(n_Fecha1,Corte+{k}-1))', NF_MES),
+             ("Origen de volúmenes", lambda k: f'=IF(Corte+{k}>{N},"",IF(AND({k}<=n_Ventana,INDEX(Det_nQ,1,Corte+{k})>0),"Detalle","Anual"))', None),
+             ("Origen de costos", lambda k: (f'=IF(Corte+{k}>{N},"",IF(AND({k}<=n_Ventana,INDEX(Det_nMP,1,Corte+{k})+INDEX(Det_nIN,1,Corte+{k})+INDEX(Det_nOV,1,Corte+{k})'
+                                              f'+INDEX(Det_nDO,1,Corte+{k})+INDEX(Det_nSA,1,Corte+{k})+INDEX(Det_nFC,1,Corte+{k})>0),"Detalle","Anual"))'), None)]
+    for j, (lab, fn, fmt) in enumerate(heads):
+        put(ws, r + j, 2, lab, font=F_H, fill=FL_H)
+        for c in (1, 3, 4, 5):
+            ws.cell(row=r + j, column=c).fill = FL_H
+        for k in range(1, NV + 1):
+            put(ws, r + j, 5 + k, fn(k), font=F_H, fill=FL_H, fmt=fmt, al=CEN)
+    put(ws, r, 3, "Año 1 ventana", font=F_H, fill=FL_H, al=CEN)
+    put(ws, r, 4, "Año 2 ventana", font=F_H, fill=FL_H, al=CEN)
+    put(ws, r, 5, "Total 24 meses", font=F_H, fill=FL_H, al=CEN)
+    r += len(heads) + 1
+    c1, c12, c13, c24 = CL(6), CL(17), CL(18), CL(29)
+
+    def linea(rr, key, lab, src, kind="sum", fmt=NF_USD, bold=False):
+        put(ws, rr, 1, key, font=F_S)
+        put(ws, rr, 2, lab, font=F_B if bold else F, fill=FL_TOT if bold else None)
+        for k in range(1, NV + 1):
+            put(ws, rr, 5 + k, f'=IF(Corte+{k}>{N},"",INDEX(Calculo!{RG(src)},1,Corte+{k}))', fmt=fmt, font=F_B if bold else F)
+        if kind == "sum":
+            for col, a1, a2 in [(3, c1, c12), (4, c13, c24), (5, c1, c24)]:
+                put(ws, rr, col, f"=SUM({a1}{rr}:{a2}{rr})", fmt=fmt, font=F_B, fill=FL_TOT)
+        elif kind == "end":
+            for col, cc in [(3, c12), (4, c24), (5, c24)]:
+                put(ws, rr, col, f"={cc}{rr}", fmt=fmt, font=F_B, fill=FL_TOT)
+        elif kind == "max":
+            for col, a1, a2 in [(3, c1, c12), (4, c13, c24), (5, c1, c24)]:
+                put(ws, rr, col, f"=MAX({a1}{rr}:{a2}{rr})", fmt=fmt, font=F_B, fill=FL_TOT)
+
+    section(ws, r, "A. Vigente: resultado, caja y financiamiento", 29); r += 1
+    lineas = [("V.vtas", "Ventas", "sum", True), ("V.MAT", "Materia prima e insumos", "sum", False), ("V.OVAR", "Otros costos variables", "sum", False),
+              ("V.PERP", "Personal de producción", "sum", False), ("V.FIJP", "Costos fijos de producción e imprevistos", "sum", False),
+              ("V.PERA", "Personal administrativo", "sum", False), ("V.ADM", "Gastos de administración", "sum", False), ("V.TRIB", "Tributo de maquila", "sum", False),
+              ("V.EBITDA", "EBITDA", "sum", True), ("V.DEP", "Depreciación", "sum", False), ("V.INT", "Intereses, IVA y comisiones", "sum", False),
+              ("V.NI", "Resultado neto", "sum", True), ("V.CFO", "Flujo operativo", "sum", True), ("V.CAPEX", "CAPEX pagado", "sum", False),
+              ("V.DESEMB", "Desembolsos (préstamos + línea)", "sum", False), ("V.AMORT", "Amortizaciones (préstamos + línea)", "sum", False),
+              ("V.APORTE", "Aportes de socios", "sum", False), ("V.DIV", "Dividendos pagados", "sum", False),
+              ("V.CAJA", "Caja al cierre", "end", True), ("V.DEUDA", "Deuda al cierre", "end", False), ("V.LCS", "Línea rotativa: saldo", "end", False),
+              ("V.ctn", "Capital de trabajo neto", "end", False), ("V.BRECHA", "Brecha bajo la caja mínima (máx.)", "max", False)]
+    PY = {}
+    for src, lab, kind, bold in lineas:
+        PY[src] = r
+        linea(r, src, lab, src, kind, bold=bold)
+        r += 1
+    PY["mg"] = r
+    put(ws, r, 2, "Margen EBITDA")
+    for col in range(3, 6 + NV):
+        cc = CL(col)
+        put(ws, r, col, f'=IF(N({cc}{PY["V.vtas"]})=0,"",{cc}{PY["V.EBITDA"]}/{cc}{PY["V.vtas"]})', fmt=NF_PCT)
+    r += 2
+    section(ws, r, "B. Presupuesto original en los mismos meses y desvío", 29); r += 1
+    for src, lab, kind, bold in [("P.vtas", "Ventas — presupuesto", "sum", False), ("P.EBITDA", "EBITDA — presupuesto", "sum", False),
+                                 ("P.NI", "Resultado neto — presupuesto", "sum", False), ("P.CAJA", "Caja al cierre — presupuesto", "end", False)]:
+        PY[src] = r
+        linea(r, src, lab, src, kind, bold=bold)
+        r += 1
+    for lab, v, pp, kind in [("Desvío ventas (vigente − presupuesto)", "V.vtas", "P.vtas", "sum"), ("Desvío EBITDA", "V.EBITDA", "P.EBITDA", "sum"),
+                             ("Desvío resultado neto", "V.NI", "P.NI", "sum"), ("Desvío caja al cierre", "V.CAJA", "P.CAJA", "end")]:
+        put(ws, r, 2, lab, font=F_B)
+        for col in range(3, 6 + NV):
+            cc = CL(col)
+            put(ws, r, col, f'=IF(OR({cc}{PY[v]}="",{cc}{PY[pp]}=""),"",{cc}{PY[v]}-{cc}{PY[pp]})', fmt=NF_USD, font=F_B)
+        r += 1
+    r += 1
+    put(ws, r, 2, "Fuente: hoja Calculo (bloques V y P). Meses reales = Reales; ventana = Detalle_24m donde hay dato; resto = supuestos anuales.", font=F_S)
+    nm("py_Brecha", "Proyeccion_24m", f"E{PY['V.BRECHA']}")
+    from openpyxl.chart import LineChart, Reference
+    from openpyxl.chart.series import SeriesLabel
+    ch = LineChart()
+    ch.title = "Próximos 24 meses: EBITDA y caja (vigente)"
+    ch.height, ch.width = 7.5, 22
+    for key, n in [("V.EBITDA", "EBITDA"), ("V.CAJA", "Caja al cierre"), ("P.CAJA", "Caja presupuesto")]:
+        ch.add_data(Reference(ws, min_col=6, max_col=5 + NV, min_row=PY[key]), from_rows=True, titles_from_data=False)
+        ch.series[-1].tx = SeriesLabel(v=n)
+        ch.series[-1].smooth = False
+    ch.set_categories(Reference(ws, min_col=6, max_col=5 + NV, min_row=4))
+    ch.x_axis.tickLblPos = "low"
+    ws.add_chart(ch, f"B{r + 2}")
+    ws.freeze_panes = "F10"
+
+
 # ============================================================================ CONTROL
 def build_control():
     ws = WS["Control"]
@@ -1562,6 +1790,25 @@ def build_guia():
          "Por ejemplo: NEGOCIO_cierre_2026-10.xlsx.", '="○ Manual"'),
         ("Trimestral: revisar supuestos vigentes y escenarios", link("Supuestos", "E6", "Supuestos"), "—",
          "Actualizar tasas, TC, precios y costos con evidencia.", '="○ Manual"'),
+        ("F. Proyección rodante de 24 meses (Detalle_24m) y revisión del plan",),
+    ] + [(lab, f'=HYPERLINK("#Detalle_24m!"&ADDRESS({DT[code + "_first"]},MIN(149,5+Corte+1),4),"Detalle_24m, {ref}")', fuente, crit,
+          (f'=IF(N(n_Ventana)=0,"— Sin ventana",IF(SUMPRODUCT((Detalle_24m!${M1}${DT["hdr"]}:${MN}${DT["hdr"]}>Corte)*(Detalle_24m!${M1}${DT["hdr"]}:${MN}${DT["hdr"]}<=Corte+n_Ventana)*(Det_n{code}>0))=0,'
+           f'"○ Usa supuestos anuales",IF(SUMPRODUCT((Detalle_24m!${M1}${DT["hdr"]}:${MN}${DT["hdr"]}>Corte)*(Detalle_24m!${M1}${DT["hdr"]}:${MN}${DT["hdr"]}<=Corte+n_Ventana)*(Det_n{code}>0))'
+           f'>=MIN(n_Ventana,{N}-Corte),"✔ "&MIN(n_Ventana,{N}-Corte)&" meses detallados","⚠ "&SUMPRODUCT((Detalle_24m!${M1}${DT["hdr"]}:${MN}${DT["hdr"]}>Corte)*(Detalle_24m!${M1}${DT["hdr"]}:${MN}${DT["hdr"]}<=Corte+n_Ventana)*(Det_n{code}>0))'
+           f'&" de "&MIN(n_Ventana,{N}-Corte)&" meses: completar hasta el mes "&MIN({N},Corte+n_Ventana))))'))
+         for code, ref, lab, fuente, crit in [
+             ("Q", "bloque B", "Volúmenes por producto en la ventana", "Pedidos, plan comercial", "Con cada cierre, agregar el nuevo último mes de la ventana."),
+             ("P", "bloque C", "Precios de venta por producto", "Contratos / listas de precios", "Solo si cambian respecto del supuesto anual."),
+             ("MP", "bloque D", "Materia prima por unidad (asegurada)", "Cotizaciones y contratos de compra", "Costo asegurado de los próximos meses."),
+             ("DO", "bloque G", "Dotación por puesto", "Plan de personal / RR. HH.", "Ingresos y egresos previstos por mes."),
+             ("SA", "bloque H", "Salarios por puesto", "Nómina / ajustes salariales", "Incluye el mes de cada ajuste salarial."),
+             ("FC", "bloque I", "Costos fijos del mes", "Contratos (alquiler, energía, mantenimiento)", "Montos en la moneda de cada concepto."),
+             ("TC", "bloque A", "Tipo de cambio mensual", "BCP / presupuesto de TC", "Opcional: si no, se usa el TC anual.")]] + [
+        ("Revisar la proyección de 24 meses", link("Proyeccion_24m", "B4", "Proyeccion_24m"), "—",
+         "Caja, deuda y desvíos frente al presupuesto mes a mes.", '=IF(N(py_Brecha)>0.5,"⚠ Caja bajo el mínimo en los próximos 24 meses","✔ Sin brecha en 24 meses")'),
+        ("Revisión del plan a 10 años (presupuesto original)", link("Inicio", "C15", "Inicio!C15:C17"), "Gerencia / Directorio",
+         "Anual o bienal: guardar el archivo anterior, pasar los supuestos vigentes aprobados al presupuesto y actualizar versión y fecha.",
+         '=IF(NOT(ISNUMBER(n_FechaRev)),"⚠ Cargar fecha de la última revisión",IF(TODAY()>EDATE(n_FechaRev,IF(n_Frecuencia="Bienal",24,12)),"⚠ Revisión vencida","✔ Próxima: "&DAY(EDATE(n_FechaRev,IF(n_Frecuencia="Bienal",24,12)))&"/"&MONTH(EDATE(n_FechaRev,IF(n_Frecuencia="Bienal",24,12)))&"/"&YEAR(EDATE(n_FechaRev,IF(n_Frecuencia="Bienal",24,12)))))'),
     ]
     r = 8
     header(ws, r, ["N°", "Paso", "Dónde (clic para ir)", "Fuente del dato", "Criterio", "Estado (automático)", "Hecho", "Fecha", "Responsable", "Notas"], 1, 30)
@@ -1639,12 +1886,14 @@ def main():
     build_costos()
     build_inversion()
     build_reales()
+    build_detalle()
     build_calculo()
     build_resultados()
+    build_proy()
     build_control()
     build_guia()
     marcar_modificados()
-    tabs = {"Inicio": "1F3864", "Guia_Carga": "00B0F0", "Supuestos": "FFC000", "Productos": "FFC000", "Costos": "FFC000", "Inversion": "FFC000", "Reales": "FFC000",
+    tabs = {"Inicio": "1F3864", "Guia_Carga": "00B0F0", "Detalle_24m": "FFC000", "Proyeccion_24m": "548235", "Supuestos": "FFC000", "Productos": "FFC000", "Costos": "FFC000", "Inversion": "FFC000", "Reales": "FFC000",
             "Calculo": "7F7F7F", "Resultados": "548235", "Control": "C00000"}
     for s in SHEETS:
         WS[s].sheet_properties.tabColor = tabs[s]

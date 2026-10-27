@@ -21,6 +21,10 @@ DATOS = {
     "corte": None,               # sin datos reales cargados
     "inicio_real": None,
     "escenario": "Vigente",
+    "ventana": 24,               # meses de proyección detallada (ventana móvil)
+    "version_plan": "Plan CIE–PERG Oct-2025",
+    "fecha_revision": None,      # pendiente: fecha de aprobación del plan vigente
+    "frecuencia": "Anual",
     # ------------------------------------------------------------------ supuestos generales
     # clave: (valor presupuesto original, nota / fuente)
     "params": {
