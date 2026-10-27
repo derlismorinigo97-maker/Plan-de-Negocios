@@ -4,7 +4,7 @@
 
 1. Abrir `Modelo_Maquila_ECOSTAR_v6.xlsx` en Excel. Para correr escenarios, trabajar sobre una copia: Guardar como `…_v6_pruebas.xlsx`.
 2. Abrir el panel de Claude, de preferencia en un chat nuevo, y pegar todo el texto que está debajo de la línea «COPIAR DESDE AQUÍ».
-3. Claude va a trabajar paso por paso: en cada turno ejecuta un paso, informa el resultado y espera tu confirmación para seguir.
+3. Claude va a trabajar paso por paso: en cada turno ejecuta un paso, informa el resultado y espera tu confirmación para seguir. `Paso_a_Paso_Validacion_ECOSTAR_v6.md` indica qué revisar en cada turno.
 4. Opcional: después de la evaluación, pegar `Prompt_Guia_Uso_ECOSTAR_v2.md` para aprender a usar el libro.
 
 ---- COPIAR DESDE AQUÍ ----
@@ -29,7 +29,13 @@ El libro abierto es el modelo financiero de **Ecostar**, la maquila CIE–PERG d
 - Aportes USD 1,14 M.
 - TC base Gs 7.300.
 
-**Validación previa en LibreOffice:** 39 escenarios y 7 pruebas de operación, con **489 de 489 comprobaciones OK**. Los 36 escenarios de la versión de 12 productos dan exactamente los mismos resultados. Tu tarea es **confirmar que Excel reproduce esos resultados** y avisarme de cualquier diferencia.
+**Validación previa en LibreOffice (27/10/2026, sobre este mismo libro v6):**
+- 39 escenarios con **495 de 495 comprobaciones OK**, idénticos a la v4 (y los 36 de la versión de 12 productos, idénticos a esa versión);
+- 7 pruebas de operación OK;
+- proyección rodante de 24 meses: 11 casos con **60 de 60 comprobaciones OK**;
+- con Detalle_24m vacío, la hoja Calculo es idéntica a la v5 celda por celda.
+
+Tu tarea es **confirmar que Excel reproduce esos resultados** y avisarme de cualquier diferencia.
 
 ## 2. Reglas de trabajo
 
@@ -174,20 +180,55 @@ Valores esperados al cambiar Inicio!C13 a «Conservador»:
 
 C14 sigue en REVISAR mientras Inicio!C12 (mes real de inicio) esté vacío. Restaurá todo al terminar.
 
-**Paso 3b — Proyección rodante de 24 meses (Detalle_24m).** Sobre el libro base (sin reales), con Inicio!C14 = 24:
-- Cargá en Detalle_24m el volumen de los meses 1 a 24: fila Q1 = 1.100 y fila Q2 = 6.500 (columnas F a AC).
-- Esperado:
-  - en Calculo, V.u1 (fila 177) = 1.100 en los meses 1-24 y 1.500 en el mes 25 (columna AD), que es el supuesto anual;
-  - en Proyeccion_24m, ventas del mes 1 = 446.500; año 1 de la ventana = 5.358.000; año 2 = 5.411.580; total = 10.769.580;
-  - la fila «Origen de volúmenes» dice «Detalle» en los 24 meses;
-  - en Guia_Carga, el paso 29 = «✔ 24 meses detallados»;
-  - el presupuesto (bloque P) no cambia y el balance sigue en 0.
-- Borrá Q1 del mes 24 (columna AC): el paso 29 debe decir «⚠ 23 de 24 meses: completar hasta el mes 24».
-- Ventana móvil: con los reales del paso 3 cargados (Inicio!C11 = 6) y Q1 = 1.100 en los meses 1-36:
+**Referencias para los pasos 3b a 3d.**
+- **Libro de partida:** el libro base (sin reales), con Inicio!C14 = 24 y escenario Vigente.
+- **Detalle_24m:** el mes m está en la columna 5 + m (mes 1 = F, mes 12 = Q, mes 24 = AC, mes 36 = AO). Filas: TC 10, Q1 14, Q2 15, P1 42, MP1 70, DO1 154, SA1 187, FC1 220.
+- **Calculo:** filas V.tc 174, V.u1 177, V.u2 178, V.s1 202, V.mp_f 229, V.dir_n 233, V.dir_f 234, V.fp_f 242, V.PERA 254 (mes 1 = columna F, mes 25 = AD).
+- **Proyeccion_24m:**
+  - ventas en la fila 11 y EBITDA en la 19;
+  - C = año 1 de la ventana, D = año 2, E = total y F = primer mes;
+  - fila 7 = origen de volúmenes, fila 8 = origen de costos.
+- **Valores de partida:**
+  - ventas de la ventana: 4.850.000 / 6.181.200 / 11.031.200;
+  - EBITDA del año 1: 509.970;
+  - Guia_Carga paso 29 = «○ Usa supuestos anuales».
+- **Restauración y controles:** cada caso empieza desde el libro base, así que hay que restaurar entre casos. En todos, el balance (Resultados!D30) = 0 y el presupuesto (Resultados columna C) no cambia.
+
+**Paso 3b — Volumen y guía.**
+- **Volumen:** cargá Q1 = 1.100 y Q2 = 6.500 en los meses 1-24 (F14:AC15). Esperado:
+  - V.u1 = 1.100 en los meses 1-24 y 1.500 en el mes 25, que es el supuesto anual;
+  - V.u2 = 6.500 en los meses 1-24;
+  - Proyeccion_24m:
+    - ventas del mes 1 = 446.500;
+    - ventas año 1 / año 2 / total = 5.358.000 / 5.411.580 / 10.769.580;
+    - EBITDA del año 1 = 679.293;
+    - la fila 7 dice «Detalle» en los 24 meses;
+  - Guia_Carga paso 29 = «✔ 24 meses detallados».
+- **Mes faltante:** borrá Q1 **y** Q2 del mes 24 (AC14:AC15). El paso 29 cuenta los meses que tienen al menos un volumen cargado. Esperado: «⚠ 23 de 24 meses: completar hasta el mes 24». Restaurá.
+
+**Paso 3c — Precio, costos y TC.** Corré un caso por vez y restaurá entre casos:
+
+| Caso | Carga en Detalle_24m | Esperado |
+|---|---|---|
+| Precio | P1 = 280 en los meses 1-12 (F42:Q42) | V.s1 = 280.000 en los meses 1-12 y 340.875 en el mes 13 (1.250 × 272,70). Ventas del año 1 de la ventana = 4.970.000. |
+| Materia prima | MP1 = 90 en los meses 1-24 | V.mp_f sube 7.350 en el mes 1 (1.000 × (90 − 82,65)) y 8.154,38 en el mes 13. El mes 25 no cambia. EBITDA del año 1 = 413.656. |
+| Personal | DO1 = 6 y SA1 = 5.000.000 (Gs) en los meses 1-24 | V.dir_n del mes 1 = 45 (base 43). V.dir_f del mes 1 sube 2.377,55. EBITDA del año 1 = 479.713. |
+| Costo fijo | FC1 = 20.000.000 (Gs) en los meses 1-24 (base Gs 14.000.000) | V.fp_f del mes 1 sube 821,92 (6.000.000 / 7.300). EBITDA del año 1 = 499.614. |
+| TC | TC = 8.000 en los meses 1-24 (F10:AC10) | V.tc = 8.000 en los meses 1-24 y 7.300 en el mes 25. V.PERA del mes 1 = 8.175,99 (= 8.959,99 × 7.300 / 8.000). Ventas sin cambio. EBITDA del año 1 = 584.427. |
+
+**Paso 3d — Escenario, ventana y ventana móvil.**
+- **Escenario sobre el detalle:** Q1 = 1.100 en los meses 1-24 e Inicio!C13 = «Conservador».
+  - Esperado: V.u1 = 0 en los meses 1-3 (atraso de 3 meses), 990 en los meses 4-24 (1.100 × 0,90) y 1.125 en el mes 25.
+  - Restaurá C13 = «Vigente».
+- **Ventana de 12 meses:** Q1 = 1.100 en los meses 1-24 e Inicio!C14 = 12.
+  - Esperado: V.u1 = 1.100 en los meses 1-12 y 1.250 (anual) en los meses 13-24.
+  - Restaurá C14 = 24.
+- **Ventana móvil:** con los reales del paso 3 cargados (Inicio!C11 = 6) y Q1 = 1.100 en los meses 1-36 (F14:AO14). Esperado:
   - V.u1 = 600 en los meses 1-6 (reales), 1.100 en los meses 7-30 (ventana) y 1.500 en los meses 31-36 (el detalle fuera de la ventana no se usa);
-  - Proyeccion_24m empieza en el mes 7, con ventas del primer mes = 431.166,67.
-- Materia prima: MP1 = 90 en los meses 1-24 → la materia prima del mes 1 (Calculo V.mp_f) sube 7.350 (1.000 × (90 − 82,65)).
-- Restaurá todo al terminar: Detalle_24m vacío, Inicio!C11 vacío.
+  - Proyeccion_24m empieza en el mes 7, con ventas del primer mes = 431.166,67;
+  - ventas año 1 / año 2 / total = 5.432.170 / 5.953.414,70 / 11.385.584,70;
+  - balance = 0.
+- **Restauración final:** Detalle_24m vacío, Inicio!C11 vacío, Reales e Inversion G:H como estaban. Confirmá que el VAN del proyecto vuelve a 6.989.922.
 
 **Pasos 4 a 10 — Catálogo de escenarios.** Corré un grupo por turno, en este orden:
 - financiamiento y cobranza (F);
@@ -200,7 +241,7 @@ C14 sigue en REVISAR mientras Inicio!C12 (mes real de inicio) esté vacío. Rest
 
 En cada escenario, restaurá antes del siguiente.
 
-**Paso 11 — Informe final.** Presentá una tabla con todos los pasos, escenarios probados, OK y diferencias. Agregá la conclusión sobre si el libro reproduce en Excel los resultados de LibreOffice y registrá el cierre en el Claude Log.
+**Paso 11 — Informe final.** Presentá una tabla con todos los pasos (incluidos 3b, 3c y 3d), escenarios probados, OK y diferencias. Agregá la conclusión sobre si el libro reproduce en Excel los resultados de LibreOffice y registrá el cierre en el Claude Log.
 
 ## 6. Catálogo de escenarios con valores esperados
 

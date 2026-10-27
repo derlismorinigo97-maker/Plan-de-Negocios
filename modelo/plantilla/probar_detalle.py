@@ -2,8 +2,9 @@
 """
 Pruebas de la proyección rodante de 24 meses (hoja Detalle_24m).
 Uso: python3 probar_detalle.py libro.xlsx recalc.py carpeta
-Corre 11 casos en LibreOffice y verifica 25 resultados esperados (volumen, precio, materiales, personal,
-costos fijos, TC, ventana móvil con cierre, escenario, ventana de 12 meses, guía y Proyeccion_24m).
+Corre 11 casos en LibreOffice y hace 60 comprobaciones: errores, balance y presupuesto sin cambio en cada caso, más
+los resultados esperados de volumen, precio, materiales, personal,
+costos fijos, TC, ventana móvil con cierre, escenario, ventana de 12 meses, guía y Proyeccion_24m.
 """
 import sys, os, json, subprocess, pickle
 from concurrent.futures import ThreadPoolExecutor

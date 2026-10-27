@@ -11,6 +11,7 @@
 | `Pruebas_Escenarios_v4.md` / `Pruebas_Escenarios_ECOSTAR_v4.xlsx` | Pruebas paso a paso de la v4: 39 escenarios, 7 pruebas de operación y regresión frente a 12 productos (489/489 OK). |
 | `Pruebas_Escenarios_v2.md` / `Pruebas_Escenarios_ECOSTAR_v2.xlsx` | Batería de 36 escenarios (financiamiento, cobranza, costos, ventas, plazos, corto vs largo plazo, TC) y verificaciones del motor. |
 | `Prompt_Claude_Excel_ECOSTAR_v6.md` | Prompt para que Claude en Excel evalúe la v6 paso a paso (incluye las pruebas de la proyección de 24 meses). |
+| `Paso_a_Paso_Validacion_ECOSTAR_v6.md` | Recorrido de la validación en Claude en Excel: preparación, qué revisar en cada turno, cómo tratar diferencias y lista de control. |
 | `Prompt_Claude_Excel_ECOSTAR_v4.md` | Prompt para que Claude en Excel evalúe la v4 paso a paso (celdas v4, 39 escenarios con valores esperados, prueba de reales). |
 | `Prompt_Claude_Excel_ECOSTAR_v2.md` | Prompt de contexto para trabajar el modelo Ecostar v2 con Claude en Excel (validación, celdas clave, 36 escenarios de referencia). |
 | `Prompt_Guia_Uso_ECOSTAR_v2.md` | Prompt para que Claude en Excel guíe paso a paso el uso del modelo (carga, cierre mensual, escenarios, lectura de resultados, criterios y errores frecuentes). |
