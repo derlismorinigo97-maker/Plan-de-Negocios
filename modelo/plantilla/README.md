@@ -1,6 +1,6 @@
 # Plantilla común de maquilas (v2)
 
-Este generador produce el libro de cada negocio con la misma estructura de 9 hojas: Inicio, Supuestos, Productos, Costos, Inversion, Reales, Calculo, Resultados y Control. El documento `../../Informe_Plantilla_Comun_v2.md` explica el diseño, los criterios y la carga.
+Este generador produce el libro de cada negocio con la misma estructura de 10 hojas: Inicio, Guia_Carga (guía de carga con estado automático), Supuestos, Productos, Costos, Inversion, Reales, Calculo, Resultados y Control. El documento `../../Informe_Plantilla_Comun_v2.md` explica el diseño, los criterios y la carga.
 
 ## Generar
 

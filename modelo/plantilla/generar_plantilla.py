@@ -84,7 +84,7 @@ CEN = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
 wb = Workbook()
 wb.remove(wb.active)
-SHEETS = ["Inicio", "Supuestos", "Productos", "Costos", "Inversion", "Reales", "Calculo", "Resultados", "Control"]
+SHEETS = ["Inicio", "Guia_Carga", "Supuestos", "Productos", "Costos", "Inversion", "Reales", "Calculo", "Resultados", "Control"]
 WS = {s: wb.create_sheet(s) for s in SHEETS}
 CUR = [None]
 
@@ -203,6 +203,7 @@ def build_inicio():
         ("Supuestos vigentes modificados respecto del presupuesto", "=c_Modificados"),
         ("Controles con alerta (hoja Control)", "=c_Alertas"),
         ("Brecha de caja máxima vigente (USD)", "=r_BrechaV"),
+        ("Pasos de la Guía de carga con alerta (⚠)", "=g_Pendientes"),
     ]
     for lab, f in est:
         put(ws, r, 2, lab)
@@ -211,6 +212,7 @@ def build_inicio():
     r += 1
     section(ws, r, "3. Cómo cargar y actualizar", 4); r += 1
     pasos = [
+        ("Paso a paso", "Seguir la hoja Guia_Carga: cada paso tiene vínculo a la celda, fuente, criterio y estado automático."),
         ("Alta de un negocio", "Copiar el archivo vacío, completar la sección 1 y luego las hojas en este orden: Supuestos → Productos → Costos → Inversion."),
         ("Presupuesto original", "Cargar en las columnas «Presupuesto original» los datos del plan aprobado. No se modifican después: son la referencia de comparación."),
         ("Proyección vigente", "Las columnas «Vigente» heredan el presupuesto (gris). Sobrescribir solo lo que cambió; la celda pasa a azul/amarillo y Control lo cuenta."),
@@ -240,7 +242,8 @@ def build_inicio():
     put(ws, r, 2, "Porcentajes como fracción (0,05 = 5%). Montos en USD salvo que la columna Moneda indique PYG.", font=F_S)
     r += 2
     section(ws, r, "5. Hojas", 4); r += 1
-    hojas = [("Supuestos", "Parámetros generales, supuestos por año, escenarios y referencia del plan publicado."),
+    hojas = [("Guia_Carga", "Guía de carga paso a paso con estado automático (alta, presupuesto, vigente, cierre mensual y revisión)."),
+             ("Supuestos", "Parámetros generales, supuestos por año, escenarios y referencia del plan publicado."),
              ("Productos", f"Hasta {NP} productos: precio, costos unitarios, capacidad y volumen anual (presupuesto y vigente)."),
              ("Costos", "Personal por puesto (dotación por año) y costos fijos (moneda, crecimiento, inicio)."),
              ("Inversion", "CAPEX por ítem (presupuesto, ejecutado, comprometido, por contratar), préstamos y aportes."),
@@ -686,6 +689,7 @@ def build_inversion():
     r += 1
     put(ws, r, 2, D.get("capex_nota") or "Aportes en especie (máquinas): cargar el ítem aquí y el mismo monto como aporte en el mismo mes.", font=F_S)
     r += 2
+    IV["loans"] = r
     section(ws, r, "B. Préstamos (sistema francés; desembolso al inicio del mes; tasa mensual = nominal anual / 12)", 21); r += 1
     header(ws, r, ["", "Condición", "Unidad", "Préstamo 1 — presupuesto", "Préstamo 1 — vigente", "Préstamo 2 — presupuesto", "Préstamo 2 — vigente",
                    "Préstamo 3 — presupuesto", "Préstamo 3 — vigente"], 1, 42)
@@ -1433,6 +1437,7 @@ def build_control():
         put(ws, r, 4, exp, al=CEN)
         cond = {"abs0": f"ABS(C{r})<0.01", "abs1": f"ABS(C{r})<1", "zero": f"C{r}=0", "one": f"C{r}=1", "tc": f"C{r}={2 * NY}", "info": "TRUE"}[kind]
         put(ws, r, 5, f'=IF({cond},"OK","REVISAR")', font=F_B, al=CEN)
+        nm(f"c_C{i + 1:02d}", "Control", f"E{r}")
         put(ws, r, 6, todo, font=F_S)
         r += 1
     last = r - 1
@@ -1456,6 +1461,159 @@ def build_control():
     put(ws, r, 3, f"=INDEX(Calculo!{RG('P.DEUDA')},1,MIN({N},Fin))", fmt=NF_USD)
     nm("r_DeudaFinP", "Control", f"C{r}")
     ws.freeze_panes = "A5"
+
+
+# ============================================================================ GUIA DE CARGA
+def build_guia():
+    ws = WS["Guia_Carga"]
+    title(ws, "Guía de carga paso a paso",
+          "Seguir en orden. El estado se calcula con los datos del libro: confirma que el dato está cargado y concilia, no que sea correcto.")
+    widths(ws, {"A": 5, "B": 46, "C": 26, "D": 26, "E": 46, "F": 30, "G": 8, "H": 11, "I": 14, "J": 30})
+    nm("g_Mes", "Guia_Carga", "C4")
+    put(ws, 4, 2, "Mes en carga (próximo mes a cerrar)", font=F_B)
+    put(ws, 4, 3, f"=MIN({N},Corte+1)", font=F_B, fmt=NF_N, fill=FL_V)
+    put(ws, 4, 4, '=IF(ISNUMBER(n_Fecha1),"Fecha: "&TEXT(MONTH(EOMONTH(n_Fecha1,g_Mes-1)),"00")&"/"&YEAR(EOMONTH(n_Fecha1,g_Mes-1)),"Sin fecha del mes 1")', font=F_S)
+    put(ws, 5, 2, "Pasos con alerta (⚠)", font=F_B)
+    put(ws, 6, 2, "Leyenda: ✔ listo · ⚠ pendiente o a revisar · ○ informativo o manual · — no aplica", font=F_S)
+    rr = lambda a, b: f"Reales!$F${RR[a]}:${MN}${RR[b]}"
+    cnt = lambda a, b: f"COUNT(INDEX({rr(a, b)},0,g_Mes))"
+    named = "SUMPRODUCT(--(Prod_Nombre<>\"\"))"
+    def link(sheet, cell, label):
+        return f'=HYPERLINK("#{sheet}!{cell}","{label}")'
+    def rlink(code, label):
+        return f'=HYPERLINK("#Reales!"&ADDRESS({RR[code]},{FCOL - 1}+g_Mes,4),"{label}, mes "&g_Mes)'
+    p_last = SUPR["p_last"]
+    steps = [
+        ("A. Alta del negocio (una vez)",),
+        ("Nombre, socios, actividad y etapa", link("Inicio", "C6", "Inicio!C6:C9"), "Plan de negocio / acta", "Etapa «Operación» si ya factura; «Implantación» si todavía no.",
+         '=IF(AND(n_Negocio<>"",n_Etapa<>""),"✔ Listo","⚠ Pendiente")'),
+        ("Fecha del mes 1 del modelo", link("Inicio", "C10", "Inicio!C10"), "Plan aprobado", "Preferentemente enero. Solo cambia las etiquetas de fecha.",
+         '=IF(ISNUMBER(n_Fecha1),"✔ Listo","⚠ Pendiente (recomendado)")'),
+        ("Mes real de inicio de operación", link("Inicio", "C12", "Inicio!C12"), "Primera factura / acta de inicio",
+         "No cambiar el inicio del presupuesto: el real se carga aquí.",
+         '=IF(n_Etapa="Operación",IF(ISNUMBER(n_InicioReal),"✔ Listo","⚠ Pendiente"),IF(n_Etapa="","⚠ Definir primero la etapa (paso 1)","— No aplica (implantación)"))'),
+        ("B. Presupuesto original (una vez, plan aprobado; no se modifica después)",),
+        ("Parámetros generales (columna «Presupuesto original»)", link("Supuestos", "D6", f"Supuestos!D6:D{p_last}"), "Plan aprobado",
+         "Porcentajes como fracción (0,05 = 5%). Anotar la fuente en la nota.",
+         f'=IF(COUNTBLANK(Supuestos!$D$6:$D${p_last})=0,"✔ Listo","⚠ Faltan "&COUNTBLANK(Supuestos!$D$6:$D${p_last})&" parámetros")'),
+        ("Tipo de cambio por año", link("Supuestos", f"D{SUPR['TC_O']}", f"Supuestos!D{SUPR['TC_O']}:M{SUPR['TC_O']}"), "Plan / BCP",
+         "Obligatorio: convierte la nómina y los costos en guaraníes.",
+         f'=IF(COUNTIF(TC_O,">0")={NY},"✔ Listo","⚠ Faltan "&({NY}-COUNTIF(TC_O,">0"))&" años")'),
+        ("Variaciones de precio, costos y salarios, y dividendos por año", link("Supuestos", f"D{SUPR['dPrecio_O']}", f"Supuestos!D{SUPR['dPrecio_O']}:M{SUPR['Payout_O']}"),
+         "Plan aprobado", "Vacío no es cero: cargar 0 si no hay variación.",
+         f'=IF(COUNTBLANK(Supuestos!$D${SUPR["dPrecio_O"]}:$M${SUPR["Payout_O"]})=0,"✔ Listo","⚠ Faltan "&COUNTBLANK(Supuestos!$D${SUPR["dPrecio_O"]}:$M${SUPR["Payout_O"]})&" celdas")'),
+        ("Productos: nombre, unidad, precio, costos por unidad y capacidad", link("Productos", f"B{PR['first']}", f"Productos!B{PR['first']}:N{PR['last']}"),
+         "Plan / costeo de producto", f"Hasta {NP} productos individuales. Capacidad 0 = no se controla.",
+         f'=IF({named}=0,"⚠ Sin productos",IF(SUMPRODUCT((VolTot_O>0)*(Precio_O=0))>0,"⚠ "&SUMPRODUCT((VolTot_O>0)*(Precio_O=0))&" producto(s) con volumen y sin precio","✔ "&{named}&" producto(s)"))'),
+        ("Volumen de ventas por año (presupuesto)", link("Productos", f"D{PR['vol_O']}", f"Productos!D{PR['vol_O']}:M{PR['vol_O'] + NP - 1}"), "Plan comercial",
+         "Unidades vendidas por año de operación.",
+         '=IF(SUM(VolTot_O)=0,"⚠ Sin volumen",IF(SUMPRODUCT((Prod_Nombre<>"")*(VolTot_O=0)*(VolTot_V=0))>0,"⚠ Hay productos sin volumen","✔ Listo"))'),
+        ("Personal: puesto, clase, moneda, salario mensual y dotación por año", link("Costos", f"B{CO['per_first']}", f"Costos!B{CO['per_first']}:P{CO['per_last']}"),
+         "Nómina / RR. HH.", "Clase: Directo, Indirecto o Administración. Salario sin cargas sociales.",
+         '=IF(COUNT(Sal_O)=0,"⚠ Sin personal","✔ "&COUNT(Sal_O)&" puesto(s)")'),
+        ("Costos fijos: concepto, clase, moneda, monto, crecimiento y año de inicio", link("Costos", f"B{CO['fc_first']}", f"Costos!B{CO['fc_first']}:J{CO['fc_first'] + NFIJ - 1}"),
+         "Contratos / presupuesto de gastos", "IVA incluido solo si no se recupera.",
+         '=IF(COUNT(FC_O)=0,"⚠ Sin costos fijos","✔ "&COUNT(FC_O)&" concepto(s)")'),
+        ("Inversión (CAPEX): monto, mes de pago y vida útil por ítem", link("Inversion", f"B{IV['first']}", f"Inversion!B{IV['first']}:F{IV['last']}"),
+         "Presupuesto de inversión / cotizaciones", "Aporte en especie: cargar el ítem y el aporte en el mismo mes.",
+         '=IF(COUNT(Inv_D)=0,"⚠ Sin CAPEX",IF(SUMPRODUCT((Inv_D>0)*((Inv_E="")+(Inv_F="")))>0,"⚠ Ítems sin mes o sin vida útil","✔ "&COUNT(Inv_D)&" ítem(s)"))'),
+        ("Financiamiento: préstamos, línea rotativa y aportes", link("Inversion", f"B{IV['loans']}", "Inversion, secciones B, B2 y C"),
+         "Contratos bancarios / acta de socios", "Tasa nominal anual; gracia y cuotas según contrato.",
+         '=IF(N(P_L1_Monto)+N(P_L2_Monto)+N(P_L3_Monto)+N(P_LC_Lim)+SUM(Ap_MontoO)=0,"○ Sin financiamiento cargado","✔ Listo")'),
+        ("Revisión del presupuesto: balance y plan publicado", link("Resultados", "B4", "Resultados"), "—",
+         "Balance = 0. Explicar las diferencias con el plan publicado (sección E).",
+         '=IF(c_C01="OK","✔ Balance OK","⚠ Revisar el balance")'),
+        ("C. Proyección vigente (cuando cambia un supuesto)",),
+        ("Sobrescribir en «Vigente» solo lo que cambió, con evidencia", link("Supuestos", "E6", "Columnas «Vigente»"),
+         "Contrato, cotización, nómina, oferta bancaria", "Anotar fuente y fecha. Para volver al presupuesto, reponer la fórmula que hereda.",
+         '="○ "&c_Modificados&" celda(s) vigente(s) modificada(s)"'),
+        ("Escenario de trabajo", link("Inicio", "C13", "Inicio!C13"), "—", "Vigente para el trabajo normal; Conservador y Optimista solo para análisis.",
+         '=IF(n_Escenario="Vigente","✔ Vigente","⚠ Activo: "&n_Escenario&" (volver a Vigente)")'),
+        ("D. Cierre mensual (cada mes): los vínculos llevan a la columna del mes en carga",),
+        ("TC real del mes", rlink("TC", "Reales, fila " + str(RR["TC"])), "BCP / política de CIE", "Siempre el mismo criterio (promedio o cierre).",
+         f'=IF(ISNUMBER(INDEX(Reales!$F${RR["TC"]}:${MN}${RR["TC"]},1,g_Mes)),"✔ Cargado","⚠ Pendiente")', "tc"),
+        ("Unidades vendidas por producto", rlink("U1", f"Reales, filas {RR['U1']}-{RR['U' + str(NP)]}"), "SAP SD (facturación)", "Una fila por producto con nombre.",
+         f'=IF({named}=0,"— Sin productos",IF(SUMPRODUCT((Prod_Nombre<>"")*ISNUMBER(INDEX({rr("U1", "U" + str(NP))},0,g_Mes)))={named},"✔ Cargado","⚠ Faltan "&({named}-SUMPRODUCT((Prod_Nombre<>"")*ISNUMBER(INDEX({rr("U1", "U" + str(NP))},0,g_Mes))))&" producto(s)"))', "u"),
+        ("Ventas netas por producto (moneda en la columna C)", rlink("S1", f"Reales, filas {RR['S1']}-{RR['S' + str(NP)]}"), "SAP SD / FI", "Facturación neta, sin IVA.",
+         f'=IF({named}=0,"— Sin productos",IF(SUMPRODUCT((Prod_Nombre<>"")*ISNUMBER(INDEX({rr("S1", "S" + str(NP))},0,g_Mes)))={named},"✔ Cargado","⚠ Faltan "&({named}-SUMPRODUCT((Prod_Nombre<>"")*ISNUMBER(INDEX({rr("S1", "S" + str(NP))},0,g_Mes))))&" producto(s)"))', "s"),
+        ("Costos devengados: 7 rubros sin IVA recuperable", rlink("MAT", f"Reales, filas {RR['MAT']}-{RR['TRIB']}"), "SAP MM / CO, nómina",
+         "En un mes cerrado, vacío vale cero: cargar 0 si no hubo.",
+         f'=IF({cnt("MAT", "TRIB")}=7,"✔ 7 de 7","⚠ "&{cnt("MAT", "TRIB")}&" de 7 cargados")', "c"),
+        ("Movimientos de caja: CAPEX, desembolsos, intereses, amortizaciones, aportes, dividendos", rlink("CAPEX", f"Reales, filas {RR['CAPEX']}-{RR['DIV']}"),
+         "Tesorería / SAP PS", "Cargar 0 si no hubo movimiento.",
+         f'=IF({cnt("CAPEX", "DIV")}=6,"✔ 6 de 6","⚠ "&{cnt("CAPEX", "DIV")}&" de 6 cargados")', "m"),
+        ("Saldos al cierre: caja, clientes, inventarios, IVA, proveedores, deuda", rlink("S_CAJA", f"Reales, filas {RR['S_CAJA']}-{RR['S_DEUDA']}"),
+         "Balance de comprobación / bancos", "Obligatorios en el último mes cerrado.",
+         f'=IF({cnt("S_CAJA", "S_DEUDA")}=6,"✔ 6 de 6","⚠ "&{cnt("S_CAJA", "S_DEUDA")}&" de 6 cargados")', "b"),
+        ("CAPEX por ítem: ejecutado, pagado, comprometido, por contratar", link("Inversion", f"G{IV['first']}", f"Inversion!G{IV['first']}:L{IV['last']}"),
+         "SAP PS (elementos PEP)", "El pagado total debe igualar el CAPEX de Reales (control C08).",
+         f'=IF(AND(N(i_Pagado)=0,SUM(Reales!$F${RR["CAPEX"]}:${MN}${RR["CAPEX"]})=0),"○ Sin CAPEX ejecutado todavía",IF(c_C08="OK","✔ Concilia","⚠ No concilia con Reales"))'),
+        ("Actualizar el último mes cerrado", link("Inicio", "C11", "Inicio!C11"), "—", "Recién cuando los seis pasos anteriores de datos estén en ✔.",
+         None, "cierre"),
+        ("Revisar Control después de cerrar", link("Control", "B4", "Control"), "—", "C03 a C08 en OK; explicar el ajuste de conciliación de caja si es grande.",
+         '=IF(Corte=0,"○ Sin meses cerrados",IF(AND(c_C03="OK",c_C04="OK",c_C05="OK",c_C06="OK",c_C07="OK",c_C08="OK"),"✔ Controles de carga OK","⚠ "&c_Alertas&" control(es) en REVISAR"))'),
+        ("E. Revisión y reporte",),
+        ("Brecha de caja y financiamiento", link("Resultados", "B4", "Resultados, indicadores"), "—",
+         "Si hay brecha: definir aporte, línea rotativa o mejora del capital de trabajo.",
+         '=IF(c_C13="OK","✔ Sin brecha","⚠ Brecha máxima USD "&FIXED(r_BrechaV,0))'),
+        ("Desvíos vigente vs presupuesto (ventas, EBITDA, caja)", link("Resultados", f"B{RS['D_vtas']}", "Resultados, sección D"), "—",
+         "Explicar por volumen, precio, costo y atraso.", '="○ Revisar"'),
+        ("Guardar una versión fechada del cierre y registrar los cambios", link("Inicio", "B4", "Inicio"), "—",
+         "Por ejemplo: NEGOCIO_cierre_2026-10.xlsx.", '="○ Manual"'),
+        ("Trimestral: revisar supuestos vigentes y escenarios", link("Supuestos", "E6", "Supuestos"), "—",
+         "Actualizar tasas, TC, precios y costos con evidencia.", '="○ Manual"'),
+    ]
+    r = 8
+    header(ws, r, ["N°", "Paso", "Dónde (clic para ir)", "Fuente del dato", "Criterio", "Estado (automático)", "Hecho", "Fecha", "Responsable", "Notas"], 1, 30)
+    r += 1
+    first, n, filas = r, 0, {}
+    for st in steps:
+        if len(st) == 1:
+            section(ws, r, st[0], 10)
+            r += 1
+            continue
+        n += 1
+        filas[st[5] if len(st) > 5 else n] = r
+        r += 1
+    r = first
+    n = 0
+    for st in steps:
+        if len(st) == 1:
+            r += 1
+            continue
+        n += 1
+        paso, donde, fuente, crit, est = st[:5]
+        if est is None:
+            ok = ",".join(f'LEFT(F{filas[k]},1)="✔"' for k in ("tc", "u", "s", "c", "m", "b"))
+            est = f'=IF(AND({ok}),"✔ Listo para cerrar: poner "&g_Mes,"⚠ Esperar: faltan datos del mes "&g_Mes)'
+        put(ws, r, 1, n, al=CEN)
+        put(ws, r, 2, paso, al=WRAP)
+        put(ws, r, 3, donde, font=Font(name=FONT, size=9, color="0563C1", underline="single"))
+        put(ws, r, 4, fuente, font=F_S, al=WRAP)
+        put(ws, r, 5, crit, font=F_S, al=WRAP)
+        put(ws, r, 6, est, font=F_B)
+        inp(ws, r, 7, None)
+        inp(ws, r, 8, None, NF_DATE)
+        inp(ws, r, 9, None)
+        inp(ws, r, 10, None)
+        ws.row_dimensions[r].height = 26
+        r += 1
+    last = r - 1
+    dv(ws, f"G{first}:G{last}", ["Sí", "No"])
+    put(ws, 5, 3, f'=COUNTIF(F{first}:F{last},"⚠*")', font=F_B, fmt=NF_N)
+    nm("g_Pendientes", "Guia_Carga", "C5")
+    rng = f"F{first}:F{last}"
+    ws.conditional_formatting.add(rng, FormulaRule(formula=[f'LEFT(F{first},1)="✔"'], fill=FL_OK))
+    ws.conditional_formatting.add(rng, FormulaRule(formula=[f'LEFT(F{first},1)="⚠"'], fill=FL_BAD))
+    ws.conditional_formatting.add(rng, FormulaRule(formula=[f'OR(LEFT(F{first},1)="○",LEFT(F{first},1)="—")'], fill=FL_INH))
+    r += 1
+    notas = ["El estado automático confirma que el dato existe y concilia; la revisión de que sea correcto es del responsable.",
+             "Cierre mensual: cargar todo el mes en carga, verificar que los pasos de datos estén en ✔ y recién entonces actualizar Inicio!C11.",
+             "Al actualizar el último mes cerrado, el mes en carga pasa al siguiente y los pasos del cierre vuelven a «Pendiente»: es el ciclo normal."]
+    for t in notas:
+        put(ws, r, 2, t, font=F_S)
+        r += 1
+    ws.freeze_panes = f"C{first}"
 
 
 # ============================================================================ MAIN
@@ -1484,8 +1642,9 @@ def main():
     build_calculo()
     build_resultados()
     build_control()
+    build_guia()
     marcar_modificados()
-    tabs = {"Inicio": "1F3864", "Supuestos": "FFC000", "Productos": "FFC000", "Costos": "FFC000", "Inversion": "FFC000", "Reales": "FFC000",
+    tabs = {"Inicio": "1F3864", "Guia_Carga": "00B0F0", "Supuestos": "FFC000", "Productos": "FFC000", "Costos": "FFC000", "Inversion": "FFC000", "Reales": "FFC000",
             "Calculo": "7F7F7F", "Resultados": "548235", "Control": "C00000"}
     for s in SHEETS:
         WS[s].sheet_properties.tabColor = tabs[s]

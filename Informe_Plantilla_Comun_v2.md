@@ -20,7 +20,7 @@ Además, su VAN mezcla el flujo del proyecto con el del financiamiento.
 
 La plantilla v2 toma esas salidas y las construye sobre un motor único, con estas características:
 
-- 9 hojas;
+- 9 hojas de trabajo, más una «Guía de carga» con estado automático (agregada en la v5);
 - cada dato se carga una sola vez;
 - presupuesto original, reales y proyección vigente separados;
 - los escenarios solo afectan los meses posteriores al último cierre.
@@ -95,6 +95,7 @@ La lógica general es razonable, pero la información está dispersa y repetida,
 | Hoja | Contenido | ¿Se carga? |
 |---|---|---|
 | Inicio | Nombre, etapa (Implantación/Operación), fecha del mes 1, último mes cerrado, mes real de inicio, escenario. Estado, instrucciones y pendientes. | Sí |
+| Guia_Carga | 28 pasos (alta, presupuesto, vigente, cierre mensual, revisión) con vínculo a la celda, fuente, criterio y estado automático. | Hecho / fecha / responsable |
 | Supuestos | Parámetros generales, supuestos por año (TC, variaciones de precio/costos/salarios, dividendos), escenarios y referencia del plan publicado. | Sí |
 | Productos | Hasta 25 productos individuales: precio, materia prima, insumos y otros variables por unidad; capacidad y volúmenes por año. | Sí |
 | Costos | Hasta 30 puestos (clase, moneda, salario, dotación por año) y 25 costos fijos (moneda, crecimiento, año de inicio, IVA, base de imprevistos). | Sí |

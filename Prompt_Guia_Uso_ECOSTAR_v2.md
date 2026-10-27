@@ -2,7 +2,7 @@
 
 **Cómo usarlo**
 
-1. Abrir `Modelo_Maquila_ECOSTAR_v4.xlsx` (de preferencia una copia) y el panel de Claude. También sirve para la v2.
+1. Abrir `Modelo_Maquila_ECOSTAR_v5.xlsx` (de preferencia una copia) y el panel de Claude. También sirve para la v4 y la v2.
 2. Para mejores resultados, pegar primero `Prompt_Claude_Excel_ECOSTAR_v4.md` (o el `…_v2.md` si usás la v2), que da el contexto, las celdas clave y los valores de referencia. Después pegar este prompt en el mismo chat. Este prompt también funciona solo.
 3. Pegar todo el texto que está debajo de la línea «COPIAR DESDE AQUÍ».
 
@@ -55,6 +55,7 @@ El libro es el modelo de **Ecostar** (maquila CIE–PERG de gabinetes y cajas me
 ### 1. Preparación y recorrido
 
 - **Versión de Excel:** 2019 o Microsoft 365, porque el libro usa MAXIFS y MINIFS. Cálculo en automático; si algo parece desactualizado, Ctrl+Alt+F9. Trabajar sobre una copia.
+- **Guía de carga (v5):** la hoja «Guia_Carga» lista los 28 pasos con vínculo a la celda, fuente, criterio y estado automático (✔ listo, ⚠ pendiente, ○ informativo). Usala como hoja de ruta y guiame con ella.
 - **Hojas de carga:**
   - Inicio, Supuestos, Productos, Costos e Inversion: datos del negocio y supuestos;
   - Reales: ejecución mensual.
@@ -92,6 +93,8 @@ El libro es el modelo de **Ecostar** (maquila CIE–PERG de gabinetes y cajas me
 - **Criterio clave:** el desvío entre presupuesto y vigente debe explicarse por datos, no por supuestos sin respaldo.
 
 ### 5. Cierre mensual: hoja Reales (mes 1 = columna F)
+
+En la v5, la sección D de «Guia_Carga» muestra el mes en carga, salta a su columna en Reales y marca cada bloque en ✔ cuando está completo. El paso 23 indica cuándo se puede actualizar el último mes cerrado.
 
 **Orden recomendado:**
 

@@ -2,7 +2,7 @@
 
 **Cómo usarlo**
 
-1. Abrir `Modelo_Maquila_ECOSTAR_v4.xlsx` en Excel. Para correr escenarios, trabajar sobre una copia: Guardar como `…_v4_pruebas.xlsx`.
+1. Abrir `Modelo_Maquila_ECOSTAR_v4.xlsx` o `Modelo_Maquila_ECOSTAR_v5.xlsx` (la v5 es igual a la v4 más la hoja «Guia_Carga»; mismas celdas y mismos resultados). Para correr escenarios, trabajar sobre una copia: Guardar como `…_pruebas.xlsx`.
 2. Abrir el panel de Claude, de preferencia en un chat nuevo, y pegar todo el texto que está debajo de la línea «COPIAR DESDE AQUÍ».
 3. Claude va a trabajar paso por paso: en cada turno ejecuta un paso, informa el resultado y espera tu confirmación para seguir.
 4. Opcional: después de la evaluación, pegar `Prompt_Guia_Uso_ECOSTAR_v2.md` para aprender a usar el libro.
@@ -52,6 +52,7 @@ El libro abierto es el modelo financiero de **Ecostar**, la maquila CIE–PERG d
 |---|---|---|
 | Claude Log | Historial de turnos | Sí (registro) |
 | Inicio | Nombre, etapa, fecha del mes 1 (C10), último mes cerrado (C11), mes real de inicio (C12), escenario (C13) | Sí |
+| Guia_Carga (solo v5) | 28 pasos de carga con estado automático; C4 = mes en carga, C5 = pasos con alerta | Columnas G-J (Hecho, Fecha, Responsable, Notas) |
 | Supuestos | Parámetros (D = presupuesto, E = vigente), supuestos por año (TC presupuesto en la fila 39, vigente en la 51), escenarios (E64:F71) | Sí |
 | Productos | 25 productos en las filas 6-30. Columnas: B nombre, C unidad, D-F capacidad, G/H precio, I/J materia prima, K/L insumos, M/N otros variables (presupuesto/vigente). Volumen presupuesto en D34:M58 y vigente en D63:M87. Control de capacidad en N92:N116 | Sí |
 | Costos | 30 puestos (salario vigente F6:F35) y 25 costos fijos (vigente F75:F99) | Sí |
@@ -85,9 +86,7 @@ Para un producto i (de 1 a 25):
 ## 5. Plan de evaluación paso a paso
 
 **Paso 0 — Preparación.** Confirmá:
-- que el libro es la v4;
-- que tiene 11 hojas;
-- que «Claude Log» tiene el turno 6;
+- que el libro es la v4 (11 hojas, Claude Log hasta el turno 6) o la v5 (12 hojas con «Guia_Carga», Claude Log hasta el turno 7);
 - que el cálculo está en automático.
 
 Recalculá con Ctrl+Alt+F9.
