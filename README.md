@@ -14,3 +14,5 @@
 | `versiones/v1_Modelo_Financiero_Maquila_CIE_PERG_detallado.xlsx` | Versión previa detallada (15 hojas), conservada para comparación. |
 | `modelo/plantilla/` | Generador de la plantilla v2 y datos de Ecostar. |
 | `modelo/v1/` | Generador y pruebas de la versión 1. |
+| `asistente_dual/` | App Claude + GPT (Streamlit) para comparar respuestas, revisión cruzada, abogado del diablo y juez. Ver su `README.md`. |
+| `CLAUDE.md` / `AGENTS.md` | Instrucciones para Claude Code y Codex, incluido el reparto de tareas del plugin Codex. |

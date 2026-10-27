@@ -1,0 +1,23 @@
+# Configuración del Asistente Dual (Claude + GPT).
+# Precios en USD por millón de tokens, tomados de las páginas oficiales el 27/10/2026.
+# Verificar periódicamente: https://platform.claude.com/docs/en/about-claude/pricing
+#                           https://developers.openai.com/api/docs/pricing
+
+[general]
+tope_mensual_usd = 30.0          # la app bloquea nuevas consultas al alcanzar este gasto en el mes
+tipo_cambio_pyg = 7500           # SUPUESTO de referencia (Gs/USD); actualizar al tipo de cambio vigente
+max_caracteres_archivo = 200000  # límite por archivo cargado (~50.000 tokens) para evitar sobrecostos
+esfuerzo_claude = "high"         # low | medium | high | xhigh | max (profundidad de razonamiento de Claude)
+
+# fallback = true: si Claude rechaza una consulta por sus filtros de seguridad, la API la reintenta
+# automáticamente con otro modelo de Claude (solo disponible en Opus 5.5 y Sonnet 5.5).
+[modelos.claude]
+"Claude Opus 5.5"   = { id = "claude-opus-5-5",   entrada = 4.00, salida = 20.00, fallback = true }
+"Claude Sonnet 5.5" = { id = "claude-sonnet-5-5", entrada = 2.00, salida = 10.00, fallback = true }
+"Claude Haiku 5.5"  = { id = "claude-haiku-5-5",  entrada = 0.10, salida = 0.50,  fallback = false }
+
+# Verificar el ID exacto de cada modelo en https://developers.openai.com/api/docs/models
+[modelos.gpt]
+"GPT-6.1 Sol"   = { id = "gpt-6.1-sol",   entrada = 2.00,  salida = 10.00 }
+"GPT-6 Astra"   = { id = "gpt-6-astra",   entrada = 10.00, salida = 50.00 }
+"GPT-6.1 Terra" = { id = "gpt-6.1-terra", entrada = 1.00,  salida = 5.00 }

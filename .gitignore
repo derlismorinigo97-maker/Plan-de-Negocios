@@ -1,2 +1,6 @@
 __pycache__/
 *.pyc
+.env
+.venv/
+asistente_dual/datos/
+.pytest_cache/
