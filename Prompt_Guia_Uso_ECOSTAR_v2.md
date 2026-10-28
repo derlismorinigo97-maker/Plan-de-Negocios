@@ -2,8 +2,8 @@
 
 **Cómo usarlo**
 
-1. Abrir `Modelo_Maquila_ECOSTAR_v6.xlsx` (de preferencia una copia) y el panel de Claude. También sirve para versiones anteriores (sin los módulos que no existan en ellas).
-2. Para mejores resultados, pegar primero `Prompt_Claude_Excel_ECOSTAR_v6.md` (o el de la versión que uses), que da el contexto, las celdas clave y los valores de referencia. Después pegar este prompt en el mismo chat. Este prompt también funciona solo.
+1. Abrir `Modelo_Maquila_ECOSTAR_v7.xlsx` (de preferencia una copia) y el panel de Claude. También sirve para versiones anteriores (sin los módulos que no existan en ellas).
+2. Para mejores resultados, pegar primero `Prompt_Claude_Excel_ECOSTAR_v7.md` (o el de la versión que uses), que da el contexto, las celdas clave y los valores de referencia. Después pegar este prompt en el mismo chat. Este prompt también funciona solo.
 3. Pegar todo el texto que está debajo de la línea «COPIAR DESDE AQUÍ».
 
 ---- COPIAR DESDE AQUÍ ----
@@ -29,7 +29,7 @@ El libro es el modelo de **Ecostar** (maquila CIE–PERG de gabinetes y cajas me
 - **Celdas de entrada.** Solo se modifican las celdas amarillas con texto azul y las columnas «Vigente» (gris = heredan del presupuesto).
 - **Celdas prohibidas.** Nunca se tocan:
   - las columnas «Presupuesto original»;
-  - las hojas Calculo, Resultados y Control;
+  - las hojas Calculo, Resultados, Control y las de cuadros (C01 a RRHH), salvo el bloque B «Plan publicado» cuando cargue cifras del plan;
   - filas, columnas o nombres definidos.
 - **Errores.** Si me ves por cometer un error de criterio, frenáme y explicame el riesgo.
 - **Estilo.** Español, profesional y directo. Usá tablas o listas de verificación solo cuando ayuden.
@@ -50,17 +50,19 @@ El libro es el modelo de **Ecostar** (maquila CIE–PERG de gabinetes y cajas me
 11. Rutina, versiones y comunicación a la Gerencia
 12. Errores frecuentes
 13. Proyección rodante de 24 meses (Detalle_24m) y revisión del plan a 10 años
+14. Cuadros con la estructura del plan de negocio: lectura y comparación con el plan
 
 ## Contenido y criterios de cada módulo
 
 ### 1. Preparación y recorrido
 
 - **Versión de Excel:** 2019 o Microsoft 365, porque el libro usa MAXIFS y MINIFS. Cálculo en automático; si algo parece desactualizado, Ctrl+Alt+F9. Trabajar sobre una copia.
-- **Guía de carga (v5):** la hoja «Guia_Carga» lista los 28 pasos con vínculo a la celda, fuente, criterio y estado automático (✔ listo, ⚠ pendiente, ○ informativo). Usala como hoja de ruta y guiame con ella.
+- **Guía de carga:** la hoja «Guia_Carga» lista los 37 pasos con vínculo a la celda, fuente, criterio y estado automático (✔ listo, ⚠ pendiente, ○ informativo). Usala como hoja de ruta y guiame con ella.
 - **Hojas de carga:**
   - Inicio, Supuestos, Productos, Costos e Inversion: datos del negocio y supuestos;
+  - Detalle_24m: proyección mes a mes de los próximos 24 meses;
   - Reales: ejecución mensual.
-- **Hojas automáticas:** Calculo (motor de 144 meses; bloque P = presupuesto, bloque V = vigente), Resultados y Control.
+- **Hojas automáticas:** Calculo (motor de 144 meses; bloque P = presupuesto, bloque V = vigente), Proyeccion_24m, Resultados, Control y los cuadros con la estructura del plan (índice en la hoja «Cuadros»; módulo 14).
 - **Colores:** amarillo con texto azul = entrada; gris = vigente que hereda; sin color = fórmula. En Resultados, naranja = presupuesto y verde = vigente.
 - **Unidades:** porcentajes como fracción (0,05 = 5%). Montos en USD salvo que la columna «Moneda» diga PYG.
 
@@ -227,6 +229,7 @@ Para cada alerta, explicame la causa probable en este libro y la acción concret
 9. Leer una TIR alta como si el negocio no necesitara financiamiento.
 10. Comparar la TIR de los socios con el WACC, o la del proyecto con Ke.
 11. Cargar en Detalle_24m meses que quedan fuera de la ventana y creer que ya se usan, o no agregar el nuevo último mes después de cada cierre.
+12. Comparar el VAN del modelo (FCFF, 6,99 M) con el VAN publicado del plan (4,59 M) como si fueran el mismo indicador: son métodos distintos. Para comparar cifras, usar el VAN «método del plan» del cuadro 19.
 
 ### 13. Proyección rodante de 24 meses y revisión del plan (v6)
 
@@ -258,6 +261,20 @@ Para cada alerta, explicame la causa probable en este libro y la acción concret
     2. pasar al presupuesto original los supuestos vigentes aprobados;
     3. actualizar la versión y la fecha de aprobación.
 - **Criterio:** la revisión del plan no reemplaza el seguimiento mensual. Si un desvío es grande (por ejemplo costo unitario o TC), conviene revisar antes de la fecha programada.
+
+### 14. Cuadros con la estructura del plan (v7)
+
+- **Para qué sirven:** leer el modelo con el mismo orden y los mismos nombres de línea que el plan de negocio, cuadro por cuadro, e identificar cada diferencia.
+- **Recorrido:** la hoja «Cuadros» es el índice: elige la versión (C5: Vigente o Presupuesto original), lista las hojas con su cuadro y página del plan y resume modelo frente a plan (inversión, capital operativo, ventas, costos, EBITDA, utilidad, caja, punto de equilibrio, VAN, TIR y payback).
+- **Cada hoja tiene tres bloques con las mismas filas:**
+  - A (verde) = modelo en la versión elegida;
+  - B (naranja) = cifras del plan publicado, para cargar a mano (Ecostar ya está cargado; para Alianza o la tercera maquila se copian del documento);
+  - C = diferencia modelo − plan, con la explicación de la causa. «Sin diferencia» = dentro del redondeo; «Diferencia a explicar» = hay que encontrar la causa.
+- **Columnas:** año 0 = implantación (antes de operar), años 1 a 10 = años de operación (como el plan), total.
+- **Filas de ajuste:** «Ajuste por datos reales» separa lo que viene de Reales o de Detalle_24m; sin reales ni detalle deben dar 0.
+- **Controles útiles:** cuadro 18, fila de control = 0 en todos los años (fuentes − usos = caja); cuadro 19, el método del plan aplicado a los flujos publicados reproduce el VAN y la TIR publicados.
+- **Criterio:** una diferencia explicada no es un error, pero hay que decidir qué criterio queda (por ejemplo, el TC de la nómina o el 1% de la materia prima de cajas). Las causas conocidas están en «Cuadros», sección 4.
+- **Agrupaciones:** las filas de productos, puestos, costos fijos e ítems sin uso están agrupadas; el botón + de la izquierda las muestra.
 
 ## Para empezar
 

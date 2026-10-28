@@ -3,7 +3,8 @@
 Arma el libro de resultados de la batería de escenarios (valores fijos, no fórmulas) y ejecuta las verificaciones.
 Uso: python3 informe_escenarios.py escenarios.pkl salida.xlsx [referencia.pkl]
      referencia.pkl (opcional): corrida anterior para la prueba de regresión escenario por escenario.
-     Variables de entorno opcionales: MODELO (título), LIBRO (archivo probado), FECHA (fecha de la corrida).
+     Variables de entorno opcionales: MODELO (título), LIBRO (archivo probado), FECHA (fecha de la corrida),
+     CUADROS (cuadros.pkl de probar_cuadros.py: agrega la hoja «Cuadros_pruebas»).
 """
 import os
 import pickle
@@ -321,6 +322,25 @@ for i, (a, b) in enumerate(sup, 3):
     c = w.cell(i, 2, b)
     c.font, c.alignment = F, WR
     w.row_dimensions[i].height = 30
+if os.environ.get("CUADROS"):
+    CU = pickle.load(open(os.environ["CUADROS"], "rb"))["RES"]
+    w = wb.create_sheet("Cuadros_pruebas")
+    w.cell(1, 1, f"Pruebas de los cuadros con la estructura del plan — {sum(ok for _, ok in CU)} de {len(CU)} OK").font = FT
+    w.cell(2, 1, "probar_cuadros.py: 7 casos recalculados en LibreOffice (base, presupuesto, Conservador, reales + Conservador, detalle de materia prima, "
+                 "implantación en las dos versiones).").font = FS
+    for c, h in enumerate(["Caso", "Comprobación", "Resultado"], 1):
+        x = w.cell(4, c, h)
+        x.font, x.fill, x.alignment = FH, HF, CEN
+    for i, (lab, ok) in enumerate(CU, 5):
+        caso, _, txt = lab.partition(": ")
+        w.cell(i, 1, caso).font = FB
+        w.cell(i, 2, txt).font = F
+        x = w.cell(i, 3, "OK" if ok else "FALLA")
+        x.font, x.fill = FB, GRN if ok else RED
+    w.column_dimensions["A"].width = 14
+    w.column_dimensions["B"].width = 110
+    w.column_dimensions["C"].width = 10
+    w.freeze_panes = "A5"
 for s in wb.worksheets:
     s.sheet_view.zoomScale = 90
 wb.save(OUT)

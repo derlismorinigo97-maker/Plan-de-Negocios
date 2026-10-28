@@ -4,6 +4,7 @@ Plantilla común de modelo financiero para maquilas (v2 simplificada).
 
 Un archivo independiente por negocio, misma estructura:
   Inicio · Supuestos · Productos · Costos · Inversion · Reales · Calculo · Resultados · Control
+  más las hojas de cuadros (Cuadros, C01 … RRHH) con la misma estructura que el plan de negocio.
 
 - Entradas solo en Inicio, Supuestos, Productos, Costos, Inversion y Reales (celdas amarillas, texto azul).
 - Cada dato se carga una vez: la columna «Vigente» hereda el «Presupuesto original» (gris) hasta que se sobrescribe.
@@ -18,7 +19,7 @@ Uso:
 import sys
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-from openpyxl.utils import get_column_letter as CL
+from openpyxl.utils import get_column_letter as CL, column_index_from_string
 from openpyxl.workbook.defined_name import DefinedName
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.formatting.rule import CellIsRule, FormulaRule
@@ -84,7 +85,9 @@ CEN = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
 wb = Workbook()
 wb.remove(wb.active)
-SHEETS = ["Inicio", "Guia_Carga", "Supuestos", "Productos", "Costos", "Inversion", "Detalle_24m", "Reales", "Calculo", "Proyeccion_24m", "Resultados", "Control"]
+SHEETS = ["Inicio", "Guia_Carga", "Supuestos", "Productos", "Costos", "Inversion", "Detalle_24m", "Reales", "Calculo", "Proyeccion_24m", "Resultados", "Control",
+          "Cuadros", "C01 Inversión", "C07 Producción", "C08 Ingresos", "C09 Materiales", "C10a Costos", "C10b Costo unitario", "C11 Rubros",
+          "C13 Deuda e IVA", "C15 Resultados", "C16 Capital trabajo", "C17 Equilibrio", "C18 Fondos", "C19 VAN-TIR", "C20 Depreciación", "RRHH"]
 WS = {s: wb.create_sheet(s) for s in SHEETS}
 CUR = [None]
 
@@ -266,7 +269,10 @@ def build_inicio():
              ("Calculo", "Motor mensual automático (no editar). Bloque P = presupuesto; bloque V = vigente."),
              ("Proyeccion_24m", "Vista mensual de los próximos 24 meses (vigente vs presupuesto) con totales por año de ventana."),
              ("Resultados", "Indicadores, resúmenes anuales (10 años), desvíos y gráficos."),
-             ("Control", "Validaciones y datos faltantes.")]
+             ("Control", "Validaciones y datos faltantes."),
+             ("Cuadros", "Índice de los cuadros financieros con la estructura del plan de negocio, versión que muestran y resumen modelo vs plan."),
+             ("C01 … RRHH", "Un cuadro por hoja, como el plan (inversión, producción, ingresos, materiales, costos, deuda, resultados, capital de trabajo, "
+                            "equilibrio, fondos, VAN-TIR, depreciación y personal): modelo, plan publicado y diferencia.")]
     for a, b in hojas:
         put(ws, r, 2, a, font=F_B)
         put(ws, r, 3, b)
@@ -930,11 +936,7 @@ def build_detalle():
             put(ws, rr, 4, ref(i), fmt=NF_USD2, font=F_S)
             r += 1
         DT[code + "_last"] = r - 1
-        put(ws, r, 2, "Celdas con dato en el mes", font=F_S)
-        for m in range(1, N + 1):
-            put(ws, r, FCOL + m - 1, f"=COUNT({mc(m)}{DT[code + '_first']}:{mc(m)}{DT[code + '_last']})", font=F_S, fmt=NF_N)
-        nm(f"Det_n{code}", "Detalle_24m", f"{M1}{r}:{MN}{r}")
-        r += 2
+        r += 2   # fila libre: los contadores «celdas con dato en el mes» están en Calculo (no se borran al limpiar el detalle)
     hdr = DT["hdr"]
     area = f"{M1}{DT['TC_first']}:{MN}{r}"
     ws.conditional_formatting.add(area, FormulaRule(formula=[f"AND({M1}${hdr}>Corte,{M1}${hdr}<=Corte+n_Ventana)"], fill=FL_IN,
@@ -1283,6 +1285,21 @@ def build_calculo():
             for m in range(1, N + 1):
                 put(ws, r, FCOL + m - 1, fn(m), fmt=fmt, font=F_B if bold else F)
             r += 1
+    # contadores de Detalle_24m: celdas con dato por mes y bloque (alimentan la guía y Proyeccion_24m)
+    r += 1
+    put(ws, r, 2, "CONTADORES DE DETALLE_24M — celdas con dato en el mes (la guía y Proyeccion_24m los usan)", font=F_SEC, fill=FL_SEC)
+    for c in range(1, 6):
+        ws.cell(row=r, column=c).fill = FL_SEC
+    r += 1
+    for code, tit, *_ in DET_BLOQUES:
+        ROW["det." + code] = r
+        put(ws, r, 1, "det." + code, font=F_S)
+        put(ws, r, 2, f"Celdas con dato — {tit}")
+        put(ws, r, 5, f"=SUM(F{r}:{MN}{r})", fmt=NF_N, font=F_B, fill=FL_TOT)
+        for m in range(1, N + 1):
+            put(ws, r, FCOL + m - 1, f"=COUNT(Detalle_24m!{mc(m)}{DT[code + '_first']}:{mc(m)}{DT[code + '_last']})", fmt=NF_N)
+        nm(f"Det_n{code}", "Calculo", f"{M1}{r}:{MN}{r}")
+        r += 1
     ws.freeze_panes = f"F{ROW['real'] + 1}"
 
 
@@ -1863,6 +1880,963 @@ def build_guia():
     ws.freeze_panes = f"C{first}"
 
 
+# ============================================================================ CUADROS (estructura del plan de negocio)
+# Una hoja por cuadro del plan, con el mismo orden y nombre de líneas, para identificar y comparar cada cifra.
+# Cada hoja tiene tres bloques con las mismas filas: A = modelo (versión elegida en «Cuadros»), B = plan publicado
+# (celdas de entrada; Ecostar precargado) y C = diferencia modelo − plan con su explicación.
+# Columnas: D = año 0 (implantación, antes del inicio de operación), E a N = años de operación 1 a 10, O = total.
+CU_HOJAS = [  # hoja, cuadros del plan, contenido, páginas del plan
+    ("C01 Inversión", "1, 2, 5 y 6", "Inversión y financiamiento; detalle de máquinas, infraestructura y otras inversiones", "11-13"),
+    ("C07 Producción", "7 y 7a", "Programa de producción: capacidad instalada, producción, venta y utilización", "14-15"),
+    ("C08 Ingresos", "8", "Ingresos anuales proyectados: venta, cantidad y precio por producto", "16"),
+    ("C09 Materiales", "9a y 9b", "Materia prima, insumos y consumibles por producto", "17-18"),
+    ("C10a Costos", "10a", "Costos anuales proyectados (producción, administración, depreciación, financieros) y costos fijos por concepto", "19"),
+    ("C10b Costo unitario", "10b", "Costos unitarios por producto y margen bruto", "20"),
+    ("C11 Rubros", "11 y 12", "Costos por rubros y estructura de costos (%)", "21"),
+    ("C13 Deuda e IVA", "13 y 14", "Servicio de la deuda y cálculo del IVA", "22"),
+    ("C15 Resultados", "15", "Resultados operacionales proyectados y distribución de utilidades", "23"),
+    ("C16 Capital trabajo", "16", "Capital de trabajo", "24"),
+    ("C17 Equilibrio", "17", "Punto de equilibrio", "25"),
+    ("C18 Fondos", "18", "Origen y aplicación de fondos", "26"),
+    ("C19 VAN-TIR", "19", "VAN, TIR, payback y ponderación de la tasa de corte", "27-28"),
+    ("C20 Depreciación", "20", "Depreciación del activo fijo y valor residual", "29"),
+    ("RRHH", "—", "Recursos humanos: dotación y costo por puesto", "30-34"),
+]
+CUY = 10                       # años de operación en columnas
+YC = lambda y: CL(4 + y)       # D = año 0, E..N = años 1..10
+TC_ = CL(5 + CUY)              # O = total
+NC_ = CL(6 + CUY)              # P = comentario
+CUR_ROWS = {}                  # hoja -> {"A": {clave: fila}, "B": {...}, "C": {...}}
+PLAN = D.get("plan_cuadros", {})
+NOTA = D.get("plan_notas_lineas", {})
+VIS_P = len(D.get("productos", [])) or 5        # productos visibles (el resto queda agrupado)
+VIS_PER = len(D.get("personal", [])) or 10
+VIS_FC = len(D.get("fijos", [])) or 10
+VIS_CAP = len(D.get("capex", [])) or 10
+VIS_L = len(D.get("prestamos", [])) or 1
+
+
+def CR(X, k):
+    return f"Calculo!{RG(X + '.' + k)}"
+
+
+def CSEL(X, y):
+    return f"({CR(X, 'pre')}=1)" if y == 0 else f"({CR(X, 'aop')}={y})"
+
+
+def CS(X, k, y):
+    """Suma del año de operación y (0 = implantación) de una fila del motor."""
+    sel = f"{CR(X, 'pre')},1" if y == 0 else f"{CR(X, 'aop')},{y}"
+    return f"SUMIFS({CR(X, k)},{sel})"
+
+
+def CE(X, k, y):
+    """Saldo al cierre del año de operación y (último mes del año)."""
+    if y == 0:
+        return f"IF(SUM({CR(X, 'pre')})=0,0,INDEX({CR(X, k)},1,SUM({CR(X, 'pre')})))"
+    return f"IF(COUNTIFS({CR(X, 'aop')},{y})=0,0,INDEX({CR(X, k)},1,_xlfn.MAXIFS(Calculo!{RG('m')},{CR(X, 'aop')},{y})))"
+
+
+def CN(X, y):
+    """Meses del año de operación y."""
+    return f"SUM({CR(X, 'pre')})" if y == 0 else f"COUNTIFS({CR(X, 'aop')},{y})"
+
+
+def CSUM(X, y, keys):
+    return "(" + "+".join(("-" if k.startswith("-") else "") + CS(X, k.lstrip("-"), y) for k in keys).replace("+-", "-") + ")"
+
+
+def OV_(X):
+    return "O" if X == "P" else "V"
+
+
+def TCY(X, y):
+    return f"INDEX(TC_{OV_(X)},1,{min(NY, max(1, y))})*(1+{X}_dTC)"
+
+
+def UNITS(X, y):
+    return f"SUMPRODUCT({CSEL(X, y)}*Calculo!${M1}${ROW[X + '.u1']}:${MN}${ROW[X + '.u' + str(NP)]})"
+
+
+def ALIM(X, k, y):
+    return f"SUMPRODUCT({CSEL(X, y)}*{CR(X, k + '_n')}*{CR(X, 'itc')})*{X}_Alim"
+
+
+def BASE(X, k, y):
+    """Salarios sin cargas ni alimentación de una clase de personal (dir, ind, adm)."""
+    return f"(({CS(X, k + '_f', y)})-{ALIM(X, k, y)})/(1+{X}_Cargas)"
+
+
+def MATP(X, y, i, nmx, idx):
+    """Costo anual por producto con los supuestos anuales: unidades × costo unitario × índice."""
+    return (f"{CS(X, 'u' + str(i), y)}*N(INDEX({nmx}_{OV_(X)},{i}))*INDEX(Idx{idx}_{OV_(X)},1,{min(NY, max(1, y))})"
+            f"*(1+{X}_dMat)/(1-{X}_Merma)")
+
+
+TOTCOST = ["MAT", "OVAR", "PERP", "FIJP", "TRIB", "PERA", "ADM", "-IVAR", "DEP", "INT"]
+
+
+def pname(i, suf=""):
+    return f'=IF(INDEX(Prod_Nombre,{i})="","Producto {i}",INDEX(Prod_Nombre,{i}))' + (f'&"{suf}"' if suf else "")
+
+
+def pc(c):
+    """Columna anterior."""
+    return CL(column_index_from_string(c) - 1)
+
+
+def L(k, t, m, f=NF_USD, b=False, u="USD", tot="sum", y0=True, pub=True, grp=False, nota=None, inB=False):
+    """Línea de un cuadro. m: ("s", fila del motor: suma del año), ("e", fila: saldo al cierre), ("x", fn(X, y)),
+    ("c", fn(col, R): fórmula con filas del mismo bloque) o ("t", constante). pub = se compara con el plan;
+    inB = en el bloque del plan es dato de entrada aunque en el modelo sea una fórmula del bloque."""
+    return dict(k=k, t=t, m=m, f=f, b=b, u=u, tot=tot, y0=y0, pub=pub, grp=grp, nota=nota, inB=inB)
+
+
+TOL = {NF_USD: 2, NF_USD2: 0.005, NF_PCT: 0.0005, NF_PCT2: 0.00005, NF_USD4: 0.00005}   # redondeo del plan publicado
+
+
+def S(t):
+    return dict(sec=t)
+
+
+def cu_head(ws, hoja, cuadro, sub):
+    ws.sheet_view.showGridLines = False
+    widths(ws, {"A": 7, "B": 54, "C": 11, TC_: 13, NC_: 70})
+    for y in range(0, CUY + 1):
+        ws.column_dimensions[YC(y)].width = 11.5
+    put(ws, 1, 1, cuadro, font=F_T)
+    put(ws, 2, 1, '="Información en dólares   |   Versión: "&cu_Ver&"   |   Escenario: "&n_Escenario&IF(Corte>0,"   |   Real hasta el mes "&Corte,"")',
+        font=F_AL)
+    put(ws, 3, 1, f'="Plan de referencia: "&IF(n_Version="","(sin versión)",n_Version)&" — {sub}"', font=F_S)
+    put(ws, 1, 15, '=HYPERLINK("#Cuadros!A1","← Índice de cuadros")', font=Font(name=FONT, size=9, color="0563C1", underline="single"))
+    ws.page_setup.orientation = "landscape"
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 0
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
+    ws.sheet_properties.outlinePr.summaryBelow = False
+
+
+def cu_years(ws, r, lab, blk):
+    header(ws, r, ["", lab, "Unidad"] + ["Año 0"] + [f"Año {y}" for y in range(1, CUY + 1)] + ["Total"] + (["Explicación de la diferencia"] if blk == "C" else []), 1, 24)
+    r += 1
+    put(ws, r, 2, "Estado del año" if blk == "A" else "Año calendario (modelo)", font=F_S)
+    for y in range(0, CUY + 1):
+        if blk == "A":
+            f = ('=IF(cu_P=1,"Presupuesto",IF(V_Inicio=1,"—",IF(Corte>=V_Inicio-1,"Real",IF(Corte>0,"Real+Proy.","Proyección"))))' if y == 0 else
+                 f'=IF(cu_P=1,"Presupuesto",IF(Corte>=V_Inicio+{12 * y - 1},"Real",IF(Corte>=V_Inicio+{12 * (y - 1)},"Real+Proy.","Proyección")))')
+        else:
+            f = (f'=IF(OR(n_Fecha1="",IF(cu_P=1,P_Inicio,V_Inicio)=1),"",YEAR(n_Fecha1))' if y == 0 else
+                 f'=IF(n_Fecha1="","",YEAR(EOMONTH(n_Fecha1,IF(cu_P=1,P_Inicio,V_Inicio)-1+{12 * (y - 1)})))')
+        put(ws, r, 4 + y, f, font=F_S, al=CEN, fmt=NF_N)
+    return r + 1
+
+
+def cu_block(ws, r, lines, blk, R):
+    """Escribe un bloque (A modelo, B plan, C diferencia) con las filas ya asignadas en R[blk]."""
+    RB = R[blk]
+    for ln in lines:
+        if "sec" in ln:
+            put(ws, r, 2, ln["sec"], font=F_B, fill=FL_SEC)
+            for c in range(1, 6 + CUY + (1 if blk == "C" else 0)):
+                ws.cell(row=r, column=c).fill = FL_SEC
+            r += 1
+            continue
+        k, m = ln["k"], ln["m"]
+        assert RB[k] == r, (k, RB[k], r)
+        bold = ln["b"]
+        put(ws, r, 1, k, font=F_S)
+        put(ws, r, 2, ln["t"], font=F_B if bold else (F_LINK if str(ln["t"]).startswith("=") else F), fill=FL_TOT if bold else None)
+        put(ws, r, 3, ln["u"], font=F_S)
+        for y in range(0, CUY + 1):
+            c = YC(y)
+            if y == 0 and not ln["y0"]:
+                continue
+            fill = FL_TOT if bold else None
+            if blk == "C":
+                a, p = f"{c}{R['A'][k]}", f"{c}{R['B'][k]}"
+                v = f'=IF(OR(NOT(ISNUMBER({a})),NOT(ISNUMBER({p}))),"",{a}-{p})' if ln["pub"] else None
+                put(ws, r, 4 + y, v, fmt=ln["f"], font=F_B if bold else F, fill=fill)
+                continue
+            if blk == "B" and (m[0] != "c" or ln["inB"]):
+                if not ln["pub"]:
+                    continue
+                vals = PLAN.get(k)
+                val = vals[y] if vals and y < len(vals) else None
+                inp(ws, r, 4 + y, val, ln["f"])
+                continue
+            elif m[0] == "c":
+                v = f"=IFERROR({m[1](c, RB)},\"\")"
+            elif m[0] == "s":
+                v = f"=IF(cu_P=1,{CS('P', m[1], y)},{CS('V', m[1], y)})"
+            elif m[0] == "e":
+                v = f"=IF(cu_P=1,{CE('P', m[1], y)},{CE('V', m[1], y)})"
+            elif m[0] == "x":
+                v = f"=IF(cu_P=1,{m[1]('P', y)},{m[1]('V', y)})"
+            else:
+                v = m[1]
+            put(ws, r, 4 + y, v, fmt=ln["f"], font=F_B if bold else F, fill=fill)
+        # total
+        t = ln["tot"]
+        tf = None
+        if blk == "C":
+            if ln["pub"] and t:
+                a, p = f"{TC_}{R['A'][k]}", f"{TC_}{R['B'][k]}"
+                tf = f'=IF(OR(NOT(ISNUMBER({a})),NOT(ISNUMBER({p}))),"",{a}-{p})'
+            if ln["pub"]:
+                rng, tol = f"D{r}:{YC(CUY)}{r}", TOL.get(ln["f"], 1)
+                txt = (NOTA.get(k) or ln["nota"] or "Diferencia a explicar").replace('"', "'")
+                put(ws, r, 6 + CUY, f'=IF(COUNT({rng})=0,"",IF(AND(MAX({rng})<{tol},MIN({rng})>-{tol}),"Sin diferencia","{txt}"))', font=F_S)
+        elif t == "sum":
+            tf = f"=SUM(D{r}:{YC(CUY)}{r})" if blk == "A" else f'=IF(COUNT(D{r}:{YC(CUY)}{r})=0,"",SUM(D{r}:{YC(CUY)}{r}))'
+        elif t == "c" and m[0] == "c":
+            tf = f"=IFERROR({m[1](TC_, RB)},\"\")"
+        elif t == "last":
+            tf = f"={YC(CUY)}{r}"
+        if tf:
+            put(ws, r, 5 + CUY, tf, fmt=ln["f"], font=F_B, fill=FL_TOT)
+        if ln["grp"]:
+            ws.row_dimensions[r].outlineLevel = 1
+            ws.row_dimensions[r].hidden = True
+            ws.sheet_format.outlineLevelRow = 1
+        r += 1
+    return r
+
+
+def cu_sheet(hoja, cuadro, sub, lines, notas=None):
+    ws = WS[hoja]
+    cu_head(ws, hoja, cuadro, sub)
+    r = 5
+    R = {"A": {}, "B": {}, "C": {}}
+    labels = {"A": "A. MODELO — versión seleccionada en la hoja «Cuadros» (presupuesto original o vigente)",
+              "B": "B. PLAN PUBLICADO — cifras del documento (celdas de entrada; vacío = el plan no informa la línea)",
+              "C": "C. DIFERENCIA: MODELO − PLAN PUBLICADO"}
+    fills = {"A": FL_V, "B": FL_P, "C": FL_TOT}
+    for blk in ("A", "B", "C"):
+        for c in range(1, 6 + CUY + (1 if blk == "C" else 0)):
+            ws.cell(row=r, column=c).fill = fills[blk]
+        put(ws, r, 1, labels[blk], font=F_SEC, fill=fills[blk])
+        r += 1
+        if blk == "A":
+            ws.freeze_panes = f"D{r + 1}"
+        r = cu_years(ws, r, "Concepto (USD)", blk)
+        rr = r
+        for ln in lines:
+            if "sec" in ln:
+                rr += 1
+                continue
+            R[blk][ln["k"]] = rr
+            rr += 1
+        r = cu_block(ws, r, lines, blk, R)
+        r += 1
+    if notas:
+        section(ws, r, "Notas", 5 + CUY)
+        r += 1
+        for t in notas:
+            put(ws, r, 2, t, font=F_S)
+            r += 1
+    CUR_ROWS[hoja] = R
+    return ws, R
+
+
+def cR(k):
+    """Referencia a la fila de la clave k en el bloque actual (para fórmulas «c»)."""
+    return lambda c, R: f"{c}{R[k]}"
+
+
+def cSum(keys):
+    """Suma de filas del bloque; vacío si ninguna tiene dato (plan sin cifras)."""
+    return lambda c, R: f'IF(COUNT({",".join(f"{c}{R[k]}" for k in keys)})=0,"",' + "+".join(f"N({c}{R[k]})" for k in keys) + ")"
+
+
+def cDiv(a, b):
+    return lambda c, R: f"IF(OR(NOT(ISNUMBER({c}{R[a]})),N({c}{R[b]})=0),\"\",{c}{R[a]}/{c}{R[b]})"
+
+
+def cExpr(tpl):
+    """Plantilla con claves entre llaves: «{c09.mp}-{c09.mp.1}» → referencias del bloque; vacío si no hay datos."""
+    import re
+    keys = re.findall(r"\{([^}]+)\}", tpl)
+    return lambda c, R: (f'IF(COUNT({",".join(f"{c}{R[k]}" for k in keys)})=0,"",'
+                         + re.sub(r"\{([^}]+)\}", lambda mm: f"N({c}{R[mm.group(1)]})", tpl) + ")")
+
+
+# ---------------------------------------------------------------------------- C07 producción
+def build_c07():
+    lines = []
+    for i in range(1, NP + 1):
+        g = i > VIS_P
+        lines += [
+            L(f"c07.cap.{i}", pname(i, " — capacidad instalada"), ("x", lambda X, y, i=i: (
+                f'IF(INDEX(Prod_Nombre,{i})="",0,IF(AND(N(INDEX(Cap_Anio,{i}))>0,{y}>=N(INDEX(Cap_Anio,{i}))),N(INDEX(Cap_Amp,{i})),N(INDEX(Cap_Ini,{i}))))')),
+              NF_INT, u="u", tot=None, y0=False, grp=g),
+            L(f"c07.p.{i}", "   producción (venta ÷ (1 − merma))", ("x", lambda X, y, i=i: f"{CS(X, 'u' + str(i), y)}/(1-{X}_Merma)"), NF_INT, u="u", grp=g),
+            L(f"c07.u.{i}", "   venta", ("s", f"u{i}"), NF_INT, u="u", grp=g),
+            L(f"c07.ut.{i}", "   producción / capacidad instalada", ("c", cDiv(f"c07.p.{i}", f"c07.cap.{i}")), NF_PCT, u="%", tot=None, y0=False, grp=g),
+            L(f"c07.vp.{i}", "   venta / producción", ("c", cDiv(f"c07.u.{i}", f"c07.p.{i}")), NF_PCT, u="%", tot="c", y0=False, grp=g),
+        ]
+    lines += [S("Totales"),
+              L("c07.ptot", "TOTAL PRODUCCIÓN DE UNIDADES", ("c", cSum([f"c07.p.{i}" for i in range(1, NP + 1)])), NF_INT, b=True, u="u"),
+              L("c07.vtot", "TOTAL UNIDADES PRODUCIDAS Y VENDIDAS", ("c", cSum([f"c07.u.{i}" for i in range(1, NP + 1)])), NF_INT, b=True, u="u")]
+    cu_sheet("C07 Producción", "Cuadros 7 y 7a — Programa de producción proyectada", "cuadros 7 y 7a, pág. 14-15", lines,
+             [f"Productos {VIS_P + 1} a {NP} agrupados (botón + a la izquierda para verlos).",
+              "Capacidad: hoja Productos (inicial y ampliada desde el año indicado). Producción = venta ÷ (1 − merma)."])
+
+
+# ---------------------------------------------------------------------------- C08 ingresos
+def build_c08():
+    lines = [L("c08.vtas", "INGRESOS TOTALES — ingresos netos (USD)", ("s", "vtas"), b=True),
+             L("c08.iva", "IVA sobre ventas (régimen de maquila: exportación sin IVA)", ("t", 0))]
+    for i in range(1, NP + 1):
+        g = i > VIS_P
+        lines += [L(f"c08.s.{i}", pname(i, " — venta"), ("s", f"s{i}"), grp=g),
+                  L(f"c08.q.{i}", "   cantidad", ("s", f"u{i}"), NF_INT, u="u", grp=g),
+                  L(f"c08.p.{i}", "   precio promedio", ("c", cDiv(f"c08.s.{i}", f"c08.q.{i}")), NF_USD2, u="USD/u", tot="c", grp=g)]
+    cu_sheet("C08 Ingresos", "Cuadro 8 — Ingresos anuales proyectados", "cuadro 8, pág. 16", lines,
+             [f"Productos {VIS_P + 1} a {NP} agrupados. Precio promedio = venta ÷ cantidad (incluye ajustes de escenario y precios reales).",
+              "Régimen de maquila: ventas de exportación sin IVA."])
+
+
+# ---------------------------------------------------------------------------- C09 materiales
+def build_c09():
+    lines = []
+    for code, nmx, idx, tit, tot_k in [("mp", "MP", "MP", "MATERIA PRIMA", "mp_f"), ("ins", "INS", "OV", "INSUMOS", "ins_f"),
+                                       ("ov", "OV", "OV", "INSUMOS CONSUMIBLES Y FLETES DE MATERIA PRIMA (otros variables por unidad)", "ov_f")]:
+        lines.append(S(f"Cuadro 9{'a' if code == 'mp' else 'b'} — {tit.lower()}"))
+        lines.append(L(f"c09.{code}", f"TOTAL {tit}", ("s", tot_k), b=True))
+        for i in range(1, NP + 1):
+            g = i > VIS_P
+            lines += [L(f"c09.{code}.{i}", pname(i), ("x", lambda X, y, i=i, nmx=nmx, idx=idx: MATP(X, y, i, nmx, idx)), grp=g),
+                      L(f"c09.{code}u.{i}", "   costo por pieza", ("c", cDiv(f"c09.{code}.{i}", f"c09.u.{i}")), NF_USD2, u="USD/u", tot="c", y0=False, grp=g)]
+            if code == "mp":
+                lines.append(L(f"c09.u.{i}", "   piezas", ("s", f"u{i}"), NF_INT, u="u", grp=g))
+        lines.append(L(f"c09.{code}aj", "Ajuste por detalle mensual o datos reales (total del motor − suma por producto)",
+                       ("c", cExpr("{c09." + code + "}-(" + "+".join("{c09." + code + "." + str(i) + "}" for i in range(1, NP + 1)) + ")")), pub=False))
+    cu_sheet("C09 Materiales", "Cuadros 9a y 9b — Materia prima e insumos", "cuadros 9a y 9b, pág. 17-18", lines,
+             ["Costo por producto = unidades × costo unitario del año (índice de la hoja Supuestos). El ajuste muestra lo que aporta Detalle_24m o los meses reales.",
+              "En el modelo, «otros variables por unidad» reúne los insumos consumibles y el flete de la materia prima (el plan los separa en los cuadros 9b y 10a)."])
+
+
+# ---------------------------------------------------------------------------- C10a costos anuales
+def build_c10a():
+    PROD = ["MAT", "OVAR", "PERP", "FIJP", "TRIB"]
+    lines = [
+        S("1. Costos de producción"),
+        L("c10.prod", "COSTOS DE PRODUCCIÓN", ("x", lambda X, y: CSUM(X, y, PROD)), b=True),
+        L("c10.mp", "Materia prima", ("s", "mp_f")),
+        L("c10.ins", "Insumos", ("s", "ins_f")),
+        L("c10.ov", "Insumos consumibles y fletes de materia prima", ("s", "ov_f")),
+        L("c10.mod", "Mano de obra directa (salarios)", ("x", lambda X, y: BASE(X, "dir", y))),
+        L("c10.moi", "Mano de obra indirecta de producción (salarios)", ("x", lambda X, y: BASE(X, "ind", y))),
+        L("c10.carp", "Prestaciones sociales del personal de producción", ("x", lambda X, y: f"({BASE(X, 'dir', y)}+{BASE(X, 'ind', y)})*{X}_Cargas")),
+        L("c10.alip", "Alimentación del personal de producción", ("x", lambda X, y: f"{ALIM(X, 'dir', y)}+{ALIM(X, 'ind', y)}")),
+        L("c10.fp", "Costos fijos de producción (energía, mantenimiento y otros)", ("s", "fp_f")),
+        L("c10.desp", "Despachos de importación", ("s", "desp_f")),
+        L("c10.vs", "Seguro de caución, comisiones y logística de venta", ("s", "vs_f")),
+        L("c10.pkg", "Packaging", ("s", "pkg_f")),
+        L("c10.impp", "Imprevistos de producción", ("s", "impp_f")),
+        L("c10.trib", "Tasas y tributos — maquila", ("s", "trib_f")),
+        L("c10.ajp", "Ajuste por datos reales (total del motor − suma de líneas)",
+          ("c", cExpr("{c10.prod}-({c10.mp}+{c10.ins}+{c10.ov}+{c10.mod}+{c10.moi}+{c10.carp}+{c10.alip}+{c10.fp}+{c10.desp}+{c10.vs}+{c10.pkg}+{c10.impp}+{c10.trib})")),
+          pub=False),
+        S("2. Gastos de administración"),
+        L("c10.adm", "GASTOS DE ADMINISTRACIÓN", ("x", lambda X, y: CSUM(X, y, ["PERA", "ADM"])), b=True),
+        L("c10.moa", "Mano de obra administrativa (salarios)", ("x", lambda X, y: BASE(X, "adm", y))),
+        L("c10.cara", "Prestaciones sociales", ("x", lambda X, y: f"{BASE(X, 'adm', y)}*{X}_Cargas")),
+        L("c10.alia", "Alimentación del personal", ("x", lambda X, y: ALIM(X, "adm", y))),
+        L("c10.fa", "Costos fijos de administración (detalle por concepto más abajo)", ("s", "fa_f")),
+        L("c10.impa", "Imprevistos de administración", ("s", "impa_f")),
+        L("c10.aja", "Ajuste por datos reales (total del motor − suma de líneas)",
+          ("c", cExpr("{c10.adm}-({c10.moa}+{c10.cara}+{c10.alia}+{c10.fa}+{c10.impa})")), pub=False),
+        S("3. IVA, gastos no desembolsados y financieros"),
+        L("c10.ivar", "(−) IVA recuperable de costos fijos", ("x", lambda X, y: f"-{CS(X, 'IVAR', y)}")),
+        L("c10.dep", "GASTOS NO DESEMBOLSADOS — depreciación", ("s", "DEP"), b=True),
+        L("c10.fin", "GASTOS FINANCIEROS — intereses, IVA y comisiones", ("s", "INT"), b=True),
+        L("c10.tot", "TOTAL COSTOS ANUALES", ("c", cSum(["c10.prod", "c10.adm", "c10.ivar", "c10.dep", "c10.fin"])), b=True),
+        L("c10.uni", "Piezas vendidas (todos los productos)", ("x", UNITS), NF_INT, u="u"),
+        L("c10.cpz", "Costo total por pieza vendida", ("c", cDiv("c10.tot", "c10.uni")), NF_USD2, u="USD/u", tot="c"),
+        S("Detalle de costos fijos por concepto (hoja Costos, sección C)"),
+    ]
+    fcr = lambda j: CO["fc_first"] + j - 1
+    for j in range(1, NFIJ + 1):
+        def fcx(X, y, j=j):
+            amt = f"N(INDEX(FC_{OV_(X)},{j}))"
+            conv = f'IF(INDEX(FC_Mon,{j})="PYG",1/{TCY(X, y)},1)'
+            if y == 0:
+                return f"{amt}*{CN(X, 0)}*{conv}*IF(N(INDEX(FC_Desde,{j}))=0,1,0)"
+            return (f"{amt}*(1+N(INDEX(FC_g,{j})))^{y - 1}*{CN(X, y)}*{conv}"
+                    f"*IF(OR(N(INDEX(FC_Desde,{j}))=0,{y}>=N(INDEX(FC_Desde,{j}))),1,0)")
+        lines.append(L(f"c10.fc.{j}", f'=IF(Costos!$B${fcr(j)}="","Concepto {j}",Costos!$B${fcr(j)}&" ("&Costos!$C${fcr(j)}&")")', ("x", fcx), grp=j > VIS_FC))
+    lines.append(L("c10.fcaj", "Ajuste (detalle mensual, datos reales o TC por año calendario)",
+                   ("c", cExpr("{c10.fp}+{c10.fa}-(" + "+".join("{c10.fc." + str(j) + "}" for j in range(1, NFIJ + 1)) + ")")), pub=False))
+    cu_sheet("C10a Costos", "Cuadro 10a — Costos anuales proyectados", "cuadro 10a, pág. 19", lines,
+             ["Salarios, prestaciones y alimentación se separan del costo de personal del motor (cargas sociales y alimentación de la hoja Supuestos).",
+              "El modelo clasifica al personal en directo, indirecto de producción y administración (hoja Costos). Los costos fijos incluyen el IVA no recuperable.",
+              f"Conceptos de costos fijos {VIS_FC + 1} a {NFIJ} agrupados."])
+
+
+# ---------------------------------------------------------------------------- C10b costo unitario
+def build_c10b():
+    cd = lambda X, y, i: "(" + "+".join(MATP(X, y, i, n, x) for n, x in [("MP", "MP"), ("INS", "OV"), ("OV", "OV")]) + ")"
+    lines = [L("c10b.tot", "COSTOS TOTALES (cuadro 10a)", ("x", lambda X, y: CSUM(X, y, TOTCOST)), b=True),
+             L("c10b.cdt", "Costo directo (materia prima, insumos, consumibles y flete) de todos los productos",
+               ("c", cSum([f"c10b.cd.{i}" for i in range(1, NP + 1)]))),
+             L("c10b.ot", "Otros costos a asignar (total − costo directo)", ("c", cExpr("{c10b.tot}-{c10b.cdt}")))]
+    for i in range(1, NP + 1):
+        g = i > VIS_P
+        lines += [
+            L(f"c10b.cd.{i}", pname(i, " — costo directo"), ("x", lambda X, y, i=i: cd(X, y, i)), grp=g),
+            L(f"c10b.u.{i}", "   unidades vendidas", ("s", f"u{i}"), NF_INT, u="u", grp=g),
+            L(f"c10b.s.{i}", "   ventas", ("s", f"s{i}"), grp=g),
+            L(f"c10b.cdu.{i}", "   costo directo unitario", ("c", cDiv(f"c10b.cd.{i}", f"c10b.u.{i}")), NF_USD2, u="USD/u", tot="c", grp=g),
+            L(f"c10b.mbu.{i}", "   margen bruto unitario (precio − costo directo)",
+              ("c", lambda c, R, i=i: f"IF(N({c}{R[f'c10b.u.{i}']})=0,\"\",({c}{R[f'c10b.s.{i}']}-{c}{R[f'c10b.cd.{i}']})/{c}{R[f'c10b.u.{i}']})"),
+              NF_USD2, u="USD/u", tot="c", grp=g),
+            L(f"c10b.mbp.{i}", "   margen bruto % (s/ precio)", ("c", lambda c, R, i=i: f"IF(N({c}{R[f'c10b.s.{i}']})=0,\"\",1-{c}{R[f'c10b.cd.{i}']}/{c}{R[f'c10b.s.{i}']})"),
+              NF_PCT, u="%", tot="c", grp=g),
+            L(f"c10b.oa.{i}", "   otros costos asignados (proporcional al costo directo)",
+              ("c", lambda c, R, i=i: f"IF(OR(NOT(ISNUMBER({c}{R[f'c10b.cd.{i}']})),N({c}{R['c10b.cdt']})=0),\"\",{c}{R['c10b.ot']}*{c}{R[f'c10b.cd.{i}']}/{c}{R['c10b.cdt']})"), grp=g),
+            L(f"c10b.ct.{i}", "   costo total asignado", ("c", cSum([f"c10b.cd.{i}", f"c10b.oa.{i}"])), grp=g),
+            L(f"c10b.ctu.{i}", "   costo total por unidad", ("c", cDiv(f"c10b.ct.{i}", f"c10b.u.{i}")), NF_USD2, u="USD/u", tot="c", grp=g),
+        ]
+    cu_sheet("C10b Costo unitario", "Cuadro 10b — Costos unitarios por producto", "cuadro 10b, pág. 20", lines,
+             ["Costo directo por producto con los supuestos anuales. Otros costos asignados en proporción al costo directo (mismo criterio que el plan).",
+              "Margen bruto % = margen ÷ precio. Ver la explicación en el bloque C sobre el porcentaje publicado en el plan.",
+              f"Productos {VIS_P + 1} a {NP} agrupados."])
+
+
+# ---------------------------------------------------------------------------- C11 rubros
+def build_c11():
+    rub = [("mo", "Mano de obra y cargas sociales (incluye alimentación)", lambda X, y: CSUM(X, y, ["dir_f", "ind_f", "adm_f"])),
+           ("mp", "Materia prima, insumos, consumibles y fletes", lambda X, y: CSUM(X, y, ["mp_f", "ins_f", "ov_f"])),
+           ("ot", "Mantenimiento, servicios, alquiler y otros costos", lambda X, y: CSUM(X, y, ["fp_f", "fa_f", "pkg_f", "vs_f", "impp_f", "impa_f", "-IVAR"])),
+           ("imp", "Impuestos, tasas y despachos (tributo de maquila y despachos)", lambda X, y: CSUM(X, y, ["trib_f", "desp_f"])),
+           ("fin", "Gastos financieros", lambda X, y: CS(X, "INT", y)),
+           ("dep", "Gastos no desembolsados (depreciación)", lambda X, y: CS(X, "DEP", y))]
+    lines = [S("Cuadro 11 — Costos por rubros"), L("c11.tot", "COSTOS TOTALES", ("x", lambda X, y: CSUM(X, y, TOTCOST)), b=True)]
+    lines += [L(f"c11.{k}", t, ("x", fn)) for k, t, fn in rub]
+    lines.append(L("c11.aj", "Ajuste por datos reales (total del motor − suma de rubros)",
+                   ("c", cExpr("{c11.tot}-(" + "+".join("{c11." + k + "}" for k, *_ in rub) + ")")), pub=False))
+    lines += [S("Cuadro 12 — Estructura de costos (% del costo total)"), L("c12.tot", "COSTOS TOTALES", ("c", lambda c, R: "1"), NF_PCT, b=True, u="%", tot="c", pub=False)]
+    lines += [L(f"c12.{k}", t, ("c", cDiv(f"c11.{k}", "c11.tot")), NF_PCT, u="%", tot="c") for k, t, _ in rub]
+    cu_sheet("C11 Rubros", "Cuadros 11 y 12 — Costos por rubros y estructura de costos", "cuadros 11 y 12, pág. 21", lines,
+             ["Rubros agrupados para que la comparación sea exacta: el plan separa «reparación y mantenimiento», «electricidad, combustibles y servicios» y «otros costos»; "
+              "aquí se comparan juntos."])
+
+
+# ---------------------------------------------------------------------------- C13 deuda e IVA
+def build_c13():
+    ints = lambda X, y: "(" + "+".join(CS(X, f"L{j}_int", y) for j in range(1, NL + 1)) + "+" + CS(X, "LCI", y) + ")"
+    lines = [
+        S("Cuadro 13 — Servicio de la deuda (préstamos)"),
+        L("c13.des", "Préstamos: desembolsos", ("s", "DESL")),
+        L("c13.sa", "Saldo antes de amortización", ("c", cSum(["c13.sal", "c13.am"])), tot=None),
+        L("c13.am", "Amortizaciones (cuotas de capital)", ("s", "AML"), b=True),
+        L("c13.sal", "Saldo después de amortización", ("x", lambda X, y: "(" + "+".join(CE(X, f"L{j}_sal", y) for j in range(1, NL + 1)) + ")"), tot=None),
+        L("c13.int", "Intereses (sin IVA)", ("x", ints)),
+        L("c13.iva", "IVA sobre intereses", ("x", lambda X, y: f"{CS(X, 'INT', y)}-{ints(X, y)}")),
+        L("c13.fin", "Total gastos financieros", ("s", "INT"), b=True),
+        L("c13.ds", "Servicio de la deuda (amortización + gastos financieros)", ("c", cSum(["c13.am", "c13.fin"])), b=True),
+        S("Línea de crédito rotativa"),
+        L("c13.lcd", "Uso de la línea", ("s", "LCD"), pub=False),
+        L("c13.lcr", "Devolución de la línea", ("s", "LCR"), pub=False),
+        L("c13.lcs", "Saldo de la línea al cierre", ("e", "LCS"), tot=None, pub=False),
+        S("Detalle por préstamo"),
+    ]
+    for j in range(1, NL + 1):
+        g = j > VIS_L
+        lines += [L(f"c13.l{j}d", f"Préstamo {j}: desembolso", ("s", f"L{j}_des"), grp=g, pub=False),
+                  L(f"c13.l{j}i", f"Préstamo {j}: interés (sin IVA)", ("s", f"L{j}_int"), grp=g, pub=False),
+                  L(f"c13.l{j}a", f"Préstamo {j}: amortización", ("s", f"L{j}_am"), grp=g, pub=False),
+                  L(f"c13.l{j}s", f"Préstamo {j}: saldo al cierre", ("e", f"L{j}_sal"), tot=None, grp=g, pub=False)]
+    lines += [
+        S("Cuadro 14 — Cálculo del IVA"),
+        L("c14.deb", "IVA débito por ventas (exportación de maquila: 0)", ("t", 0)),
+        L("c14.cf", "IVA contenido en costos fijos gravados", ("s", "ivac_f")),
+        L("c14.rec", "IVA recuperable aplicado (reduce costos)", ("s", "IVAR")),
+        L("c14.sal", "Saldo de crédito fiscal al cierre", ("e", "ivab"), tot=None),
+        L("c14.int", "IVA sobre intereses (se registra como costo financiero)", ("c", cR("c13.iva"))),
+    ]
+    cu_sheet("C13 Deuda e IVA", "Cuadros 13 y 14 — Servicio de la deuda y cálculo del IVA", "cuadros 13 y 14, pág. 22", lines,
+             ["Cronograma mensual (sistema francés) sumado por año de operación. El año 0 solo tiene datos si hay meses de implantación."])
+
+
+# ---------------------------------------------------------------------------- C15 resultados
+def build_c15():
+    lines = [
+        L("c15.vtas", "Ingresos netos", ("s", "vtas"), b=True),
+        L("c15.prod", "Costos de producción", ("x", lambda X, y: CSUM(X, y, ["MAT", "OVAR", "PERP", "FIJP", "TRIB"]))),
+        L("c15.adm", "Gastos de administración y ventas (neto de IVA recuperable)", ("x", lambda X, y: CSUM(X, y, ["PERA", "ADM", "-IVAR"]))),
+        L("c15.ebitda", "FONDOS GENERADOS EN OPERACIONES — EBITDA", ("s", "EBITDA"), b=True),
+        L("c15.dep", "Gastos no desembolsados (depreciación)", ("s", "DEP")),
+        L("c15.fin", "Gastos financieros", ("s", "INT")),
+        L("c15.uai", "UTILIDAD ANTES DEL IMPUESTO A LA RENTA", ("c", cExpr("{c15.ebitda}-{c15.dep}-{c15.fin}")), b=True),
+        L("c15.ire", "Impuesto a la renta — IRE", ("s", "IRE")),
+        L("c15.ni", "UTILIDAD DESPUÉS DE IMPUESTO", ("s", "NI"), b=True),
+        L("c15.dec", "Dividendos sobre la utilidad del año (política × utilidad)",
+          ("x", lambda X, y: f"INDEX(Payout_{OV_(X)},1,{max(1, y)})*MAX(0,{CS(X, 'NI', y)})" if y else "0")),
+        L("c15.ret", "Retención anual de utilidades", ("c", cExpr("{c15.ni}-{c15.dec}"))),
+        L("c15.div", "Dividendos pagados en el año (resultado del año anterior, con caja disponible)", ("s", "DIV"), pub=False),
+        L("c15.mn", "Utilidad neta sobre ventas", ("c", cDiv("c15.ni", "c15.vtas")), NF_PCT, u="%", tot="c"),
+        L("c15.pol", "Política de dividendos (% de la utilidad del año)", ("x", lambda X, y: f"INDEX(Payout_{OV_(X)},1,{max(1, y)})"), NF_PCT, u="%", tot=None, y0=False),
+    ]
+    cu_sheet("C15 Resultados", "Cuadro 15 — Resultados operacionales proyectados", "cuadro 15, pág. 23", lines,
+             ["Costos de producción incluyen el tributo de maquila (como el plan). El modelo calcula la política de dividendos por año del modelo; "
+              "los paga en el año siguiente, en el mes definido en Supuestos, solo si hay caja sobre el mínimo."])
+
+
+# ---------------------------------------------------------------------------- C16 capital de trabajo
+def build_c16():
+    stk = lambda X, y: f"{CE(X, 'MAT', y)}*{X}_DInv/DiasMes"
+    pmp = lambda X, y: f"{CE(X, 'MAT', y)}*{X}_DPOmp/DiasMes"
+    dd = lambda k: f"=IF(cu_P=1,P_{k},V_{k})"
+    lines = [
+        L("c16.bruto", "CAPITAL DE TRABAJO BRUTO (activo corriente operativo)", ("c", cSum(["c16.stk", "c16.pt", "c16.cxc", "c16.iva"])), b=True, tot=None, inB=True),
+        L("c16.caja", "Caja y bancos (caja mínima operativa; en el modelo no forma parte del capital de trabajo)", ("e", "CMIN"), u=dd("CajaMin"), tot=None),
+        L("c16.sue", "Sueldos y anticipos (no incluido en el modelo)", ("t", 0), tot=None),
+        L("c16.stk", "Stock de materiales y reservas", ("x", stk), u=dd("DInv"), tot=None),
+        L("c16.pt", "Productos terminados", ("x", lambda X, y: f"{CE(X, 'inv', y)}-{stk(X, y)}"), u=dd("DPT"), tot=None),
+        L("c16.cxc", "Ventas a crédito (cuentas por cobrar)", ("e", "cxc"), u=dd("DSO"), tot=None),
+        L("c16.iva", "Crédito fiscal IVA", ("e", "ivab"), tot=None),
+        L("c16.pas", "PASIVO CORRIENTE (proveedores)", ("e", "prov"), b=True, tot=None),
+        L("c16.pmp", "Créditos de proveedores de materia prima", ("x", pmp), u=dd("DPOmp"), tot=None),
+        L("c16.pot", "Créditos de proveedores menores y otros", ("x", lambda X, y: f"{CE(X, 'prov', y)}-{pmp(X, y)}"), u=dd("DPOot"), tot=None),
+        L("c16.ctn", "CAPITAL DE TRABAJO NETO", ("e", "ctn"), b=True, tot=None),
+        L("c16.var", "Variación del capital de trabajo en el año (necesidad de financiamiento)", ("s", "dct")),
+    ]
+    cu_sheet("C16 Capital trabajo", "Cuadro 16 — Capital de trabajo (saldos al cierre de cada año)", "cuadro 16, pág. 24", lines,
+             ["La columna «Unidad» muestra los días aplicados (versión seleccionada). Saldos al último mes de cada año de operación.",
+              "Stock de materiales = materiales del último mes × días de inventario; producto terminado = inventario total − stock de materiales."])
+
+
+# ---------------------------------------------------------------------------- C17 punto de equilibrio
+def build_c17():
+    var = [("mp", "Materia prima, insumos, consumibles y fletes", ["mp_f", "ins_f", "ov_f"]), ("desp", "Despachos de importación", ["desp_f"]),
+           ("pkg", "Packaging", ["pkg_f"]), ("vs", "Seguro de caución, comisiones y logística de venta", ["vs_f"]),
+           ("trib", "Tributo de maquila", ["trib_f"]), ("imp", "Imprevistos de producción", ["impp_f"])]
+    fij = [("per", "Personal de producción y administración (salarios, cargas y alimentación)", ["dir_f", "ind_f", "adm_f"]),
+           ("fij", "Costos fijos de producción y administración, e imprevistos de administración (neto de IVA recuperable)", ["fp_f", "fa_f", "impa_f", "-IVAR"]),
+           ("fin", "Gastos financieros", ["INT"]), ("dep", "Gastos no desembolsados (depreciación)", ["DEP"])]
+    lines = [L("c17.vtas", "Ingresos netos", ("s", "vtas"), b=True),
+             L("c17.tot", "COSTOS TOTALES", ("x", lambda X, y: CSUM(X, y, TOTCOST)), b=True),
+             L("c17.var", "COSTOS VARIABLES", ("c", cSum([f"c17.v{k}" for k, *_ in var])), b=True, inB=True)]
+    lines += [L(f"c17.v{k}", t, ("x", lambda X, y, ks=ks: CSUM(X, y, ks))) for k, t, ks in var]
+    lines.append(L("c17.fij", "COSTOS FIJOS (total − variables)", ("c", cExpr("{c17.tot}-{c17.var}")), b=True))
+    lines += [L(f"c17.f{k}", t, ("x", lambda X, y, ks=ks: CSUM(X, y, ks))) for k, t, ks in fij]
+    lines += [
+        L("c17.faj", "Ajuste por datos reales", ("c", cExpr("{c17.fij}-(" + "+".join("{c17.f" + k + "}" for k, *_ in fij) + ")")), pub=False),
+        L("c17.mc", "Margen de contribución (ingresos − variables)", ("c", cExpr("{c17.vtas}-{c17.var}"))),
+        L("c17.mcp", "Margen de contribución %", ("c", cDiv("c17.mc", "c17.vtas")), NF_PCT, u="%", tot="c"),
+        L("c17.pev", "PUNTO DE EQUILIBRIO en ventas", ("c", lambda c, R: f"IF(N({c}{R['c17.mcp']})<=0,\"\",{c}{R['c17.fij']}/{c}{R['c17.mcp']})"), b=True, tot=None),
+        L("c17.uni", "Unidades vendidas (todos los productos)", ("x", UNITS), NF_INT, u="u"),
+        L("c17.peu", "PUNTO DE EQUILIBRIO en unidades (mezcla de productos del año)",
+          ("c", lambda c, R: f"IF(N({c}{R['c17.vtas']})=0,\"\",{c}{R['c17.pev']}*{c}{R['c17.uni']}/{c}{R['c17.vtas']})"), NF_INT, b=True, u="u", tot=None),
+        L("c17.ms", "Margen de seguridad (ventas sobre el equilibrio)", ("c", lambda c, R: f"IF(N({c}{R['c17.vtas']})=0,\"\",1-{c}{R['c17.pev']}/{c}{R['c17.vtas']})"),
+          NF_PCT, u="%", tot=None),
+    ]
+    cu_sheet("C17 Equilibrio", "Cuadro 17 — Punto de equilibrio", "cuadro 17, pág. 25", lines,
+             ["Punto de equilibrio en ventas = costos fijos ÷ margen de contribución %. En unidades, con la mezcla de productos de cada año.",
+              "Variables: materiales, fletes, despachos, packaging, seguros de venta, tributo e imprevistos de producción. Fijos: personal, costos fijos, financieros y depreciación."])
+
+
+# ---------------------------------------------------------------------------- C18 origen y aplicación de fondos
+def build_c18():
+    lines = [
+        S("Fuentes"),
+        L("c18.fue", "TOTAL DE FUENTES", ("c", cSum(["c18.ebitda", "c18.sant", "c18.prest", "c18.lcd", "c18.ap"])), b=True),
+        L("c18.ebitda", "Fondos generados en operaciones (EBITDA)", ("s", "EBITDA")),
+        L("c18.sant", "Saldo de caja del año anterior", ("x", lambda X, y: "0" if y == 0 else CE(X, "CAJA", y - 1)), tot=None),
+        L("c18.prest", "Préstamos bancarios", ("s", "DESL")),
+        L("c18.lcd", "Línea de crédito rotativa: usos", ("s", "LCD")),
+        L("c18.ap", "Aportes de socios", ("s", "APORTE")),
+        S("Usos"),
+        L("c18.uso", "TOTAL DE USOS", ("c", cSum(["c18.inv", "c18.ct", "c18.am", "c18.lcr", "c18.fin", "c18.ire", "c18.div"])), b=True),
+        L("c18.inv", "Inversiones fijas", ("s", "CAPEX")),
+        L("c18.ct", "Necesidad de capital de trabajo (variación)", ("s", "dct")),
+        L("c18.am", "Amortización de créditos", ("s", "AML")),
+        L("c18.lcr", "Línea de crédito rotativa: devoluciones", ("s", "LCR")),
+        L("c18.fin", "Gastos financieros", ("s", "INT")),
+        L("c18.ire", "Impuesto a la renta — IRE", ("s", "IRE")),
+        L("c18.div", "Dividendos", ("s", "DIV")),
+        S("Saldo"),
+        L("c18.aj", "Ajuste de conciliación con la caja real (solo con reales)", ("s", "AJ"), pub=False),
+        L("c18.sal", "SALDO ANUAL — caja al cierre", ("c", cExpr("{c18.fue}-{c18.uso}+{c18.aj}")), b=True, tot=None),
+        L("c18.chk", "Control: saldo − caja del motor (0 = OK)",
+          ("x", lambda X, y: f"ROUND({CS(X, 'EBITDA', y)}+{'0' if y == 0 else CE(X, 'CAJA', y - 1)}+{CSUM(X, y, ['DESL', 'LCD', 'APORTE'])}"
+                             f"-{CSUM(X, y, ['CAPEX', 'dct', 'AML', 'LCR', 'INT', 'IRE', 'DIV'])}+{CS(X, 'AJ', y)}-{CE(X, 'CAJA', y)},2)"),
+          NF_USD2, tot=None, pub=False),
+    ]
+    cu_sheet("C18 Fondos", "Cuadro 18 — Origen y aplicación de fondos", "cuadro 18, pág. 26", lines,
+             ["Fuentes − usos = caja al cierre del año. La fila de control debe ser 0 en todos los años."])
+
+
+# ---------------------------------------------------------------------------- C19 VAN, TIR y payback
+def build_c19():
+    rs = lambda k: f"IF(cu_P=1,Resultados!$C${RS['k_' + k]},Resultados!$D${RS['k_' + k]})"
+    acc = lambda k: k.replace('p_act', 'p_acu').replace('fcffd', 'acp').replace('eqd', 'ace')
+    run = lambda k: (lambda c, R: f'IF(NOT(ISNUMBER({c}{R[k]})),"",' + (f"{c}{R[k]}" if c == "D" else f"N({pc(c)}{R[acc(k)]})+{c}{R[k]}") + ")")
+    lines = [
+        S("A. Flujo del proyecto (FCFF, sin financiamiento) — criterio del modelo"),
+        L("c19.ebitda", "Fondos generados en operaciones (EBITDA)", ("s", "EBITDA"), pub=False),
+        L("c19.ire", "(−) Impuesto a la renta", ("x", lambda X, y: f"-{CS(X, 'IRE', y)}"), pub=False),
+        L("c19.dct", "(−) Formación de capital de trabajo", ("x", lambda X, y: f"-{CS(X, 'dct', y)}"), pub=False),
+        L("c19.capex", "(−) Inversiones", ("x", lambda X, y: f"-{CS(X, 'CAPEX', y)}"), pub=False),
+        L("c19.vt", "(+) Valor residual: capital de trabajo y activo fijo realizables", ("s", "VT"), pub=False),
+        L("c19.fcff", "FLUJO LIBRE DEL PROYECTO (FCFF)", ("s", "FCFF"), b=True, pub=False),
+        L("c19.fcffd", "FCFF descontado al WACC (mensual)", ("x", lambda X, y: f"SUMPRODUCT({CSEL(X, y)}*{CR(X, 'FCFF')}*{CR(X, 'DFP')})"), pub=False),
+        L("c19.acp", "FCFF descontado acumulado", ("c", run("c19.fcffd")), tot=None, pub=False),
+        S("B. Flujo de los socios — criterio del modelo"),
+        L("c19.eq", "Flujo de los socios (− aportes − cobertura de caja negativa + dividendos + valor final)", ("s", "EQ"), pub=False),
+        L("c19.eqd", "Flujo de los socios descontado al Ke (mensual)", ("x", lambda X, y: f"SUMPRODUCT({CSEL(X, y)}*{CR(X, 'EQ')}*{CR(X, 'DFE')})"), pub=False),
+        L("c19.ace", "Flujo de los socios descontado acumulado", ("c", run("c19.eqd")), tot=None, pub=False),
+        S("C. Flujo de beneficios netos — método del plan (cuadro 19), calculado con las cifras del modelo"),
+        L("c19.p_ing", "INGRESOS TOTALES (EBITDA + valor residual)", ("x", lambda X, y: f"{CS(X, 'EBITDA', y)}+{CS(X, 'VT', y)}"), b=True),
+        L("c19.p_inv", "Inversiones", ("s", "CAPEX")),
+        L("c19.p_ct", "Formación de capital operativo", ("s", "dct")),
+        L("c19.p_am", "Amortización de créditos", ("s", "AML")),
+        L("c19.p_fin", "Gastos financieros", ("s", "INT")),
+        L("c19.p_ire", "Impuesto a la renta — IRE", ("s", "IRE")),
+        L("c19.p_egr", "EGRESOS TOTALES", ("c", cSum(["c19.p_inv", "c19.p_ct", "c19.p_am", "c19.p_fin", "c19.p_ire"])), b=True),
+        L("c19.p_flu", "FLUJO DE BENEFICIOS NETOS", ("c", cExpr("{c19.p_ing}-{c19.p_egr}")), b=True),
+        L("c19.p_fac", "Factor de descuento anual al WACC", ("c", lambda c, R: f"1/(1+IF(cu_P=1,P_WACC,V_WACC))^{c}{R['c19.yr']}"), NF_USD4, u="", tot=None, pub=False),
+        L("c19.p_act", "Flujo actualizado", ("c", lambda c, R: f'IF(NOT(ISNUMBER({c}{R["c19.p_flu"]})),"",{c}{R["c19.p_flu"]}*{c}{R["c19.p_fac"]})')),
+        L("c19.p_acu", "Saldo acumulado actualizado", ("c", run("c19.p_act")), tot=None),
+        L("c19.yr", "Año n° (auxiliar)", ("c", lambda c, R: str(column_index_from_string(c) - 4)), NF_N, u="", tot=None, pub=False, grp=True),
+    ]
+    ws, R = cu_sheet("C19 VAN-TIR", "Cuadro 19 — Cálculo de VAN, TIR y payback", "cuadros 19 y siguientes, pág. 27-28", lines,
+                     ["A y B: criterio del modelo (flujos mensuales descontados). C: el mismo flujo anual que usa el plan, recalculado con las cifras del modelo, "
+                      "para separar la diferencia de cifras de la diferencia de método.",
+                      "El método del plan descuenta los pagos de la deuda pero no suma el desembolso del préstamo: mezcla el flujo del proyecto y el del accionista."])
+    # resumen de indicadores y ponderación de la tasa (a la derecha no: debajo de las notas)
+    r = ws.max_row + 2
+    A, B = R["A"], R["B"]
+    section(ws, r, "D. Indicadores: modelo frente al plan publicado", 5 + CUY); r += 1
+    header(ws, r, ["", "Indicador", "", "Modelo", "Plan", "Diferencia", "Explicación"], 1, 24); r += 1
+    rng = lambda RB, k: f"D{RB[k]}:{YC(CUY)}{RB[k]}"
+    ind = [
+        ("i_van", "VAN — método del plan (flujo de beneficios netos al WACC); plan: VAN publicado", f"={TC_}{A['c19.p_act']}", ("inp", "c19.van"), NF_USD),
+        ("i_vanb", "VAN — método del plan; plan: recalculado con los flujos publicados (bloque B)", f"={TC_}{A['c19.p_act']}",
+         f'=IF(COUNT({rng(B, "c19.p_flu")})=0,"",{TC_}{B["c19.p_act"]})', NF_USD),
+        ("i_tir", "TIR — método del plan; plan: TIR publicada", f'=IFERROR(IRR({rng(A, "c19.p_flu")}),"No converge")', ("inp", "c19.tir"), NF_PCT2),
+        ("i_tirb", "TIR — método del plan; plan: recalculada con los flujos publicados", f'=IFERROR(IRR({rng(A, "c19.p_flu")}),"No converge")',
+         f'=IF(COUNT({rng(B, "c19.p_flu")})=0,"",IFERROR(IRR({rng(B, "c19.p_flu")}),"No converge"))', NF_PCT2),
+        ("i_pb", "Payback — método del plan (año en que el acumulado actualizado es positivo)",
+         f'=IF(_xlfn.MINIFS({rng(A, "c19.yr")},{rng(A, "c19.p_acu")},">0",{rng(A, "c19.yr")},">=1")=0,"No recupera",'
+         f'_xlfn.MINIFS({rng(A, "c19.yr")},{rng(A, "c19.p_acu")},">0",{rng(A, "c19.yr")},">=1"))', ("inp", "c19.pb"), NF_N),
+        ("i_vanp", "VAN del proyecto — FCFF al WACC (criterio del modelo)", f"={rs('van')}", None, NF_USD),
+        ("i_tirp", "TIR del proyecto (criterio del modelo)", f"={rs('tir')}", None, NF_PCT2),
+        ("i_pbp", "Recupero del proyecto en años (FCFF sin descontar, criterio del modelo)", f"={rs('pb')}", None, NF_USD2),
+        ("i_vane", "VAN de los socios — al Ke (criterio del modelo)", f"={rs('vane')}", None, NF_USD),
+        ("i_tire", "TIR de los socios (criterio del modelo)", f"={rs('tire')}", None, NF_PCT2),
+    ]
+    CUR_ROWS["C19 VAN-TIR"]["I"] = {}
+    for k, lab, fm, fp, fmt in ind:
+        CUR_ROWS["C19 VAN-TIR"]["I"][k] = r
+        put(ws, r, 2, lab)
+        put(ws, r, 4, fm, fmt=fmt, font=F_B, fill=FL_V)
+        if fp:
+            if isinstance(fp, tuple):
+                inp(ws, r, 5, PLAN.get(fp[1]), fmt)
+            else:
+                put(ws, r, 5, fp, fmt=fmt, fill=FL_P)
+            put(ws, r, 6, f'=IF(AND(ISNUMBER(D{r}),ISNUMBER(E{r})),D{r}-E{r},"")', fmt=fmt)
+            put(ws, r, 7, f'=IF(NOT(ISNUMBER(F{r})),"",IF(ABS(F{r})<{TOL.get(fmt, 1)},"Sin diferencia","'
+                + (NOTA.get(k) or "Diferencia a explicar").replace('"', "'") + '"))', font=F_S)
+        else:
+            put(ws, r, 7, NOTA.get(k, ""), font=F_S)
+        r += 1
+    r += 1
+    section(ws, r, "E. Ponderación de la tasa de corte (costo de oportunidad)", 5 + CUY); r += 1
+    header(ws, r, ["", "Fuente de capital", "", "USD (modelo)", "Participación", "Costo", "Tasa ponderada"], 1, 24); r += 1
+    tot = lambda k: f"IF(cu_P=1,Calculo!$E${ROW['P.' + k]},Calculo!$E${ROW['V.' + k]})"
+    r0 = r
+    for lab, usd, cost in [("Aportes de socios (total del horizonte)", tot("APORTE"), "IF(cu_P=1,P_Ke,V_Ke)"),
+                           ("Préstamos (total desembolsado)", tot("DESL"), "IF(cu_P=1,P_L1_Tasa,V_L1_Tasa)")]:
+        put(ws, r, 2, lab)
+        put(ws, r, 4, f"={usd}", fmt=NF_USD)
+        put(ws, r, 5, f'=IF(N(D{r0 + 2})=0,"",D{r}/D{r0 + 2})', fmt=NF_PCT)
+        put(ws, r, 6, f"={cost}", fmt=NF_PCT2)
+        put(ws, r, 7, f'=IF(E{r}="","",E{r}*F{r})', fmt=NF_PCT2)
+        r += 1
+    put(ws, r, 2, "Total — tasa ponderada con la estructura de fondos del modelo", font=F_B)
+    put(ws, r, 4, f"=D{r0}+D{r0 + 1}", fmt=NF_USD, font=F_B)
+    put(ws, r, 7, f"=SUM(G{r0}:G{r0 + 1})", fmt=NF_PCT2, font=F_B)
+    r += 1
+    put(ws, r, 2, "Tasa de descuento usada en el modelo (Supuestos: WACC)")
+    put(ws, r, 7, "=IF(cu_P=1,P_WACC,V_WACC)", fmt=NF_PCT2, font=F_B)
+    r += 1
+    put(ws, r, 2, NOTA.get("i_wacc", "El plan pondera solo el aporte inicial y el préstamo; con todos los aportes la tasa ponderada cambia."), font=F_S)
+
+
+# ---------------------------------------------------------------------------- C20 depreciación
+def build_c20():
+    ivr = lambda j: IV["first"] + j - 1
+    lines = []
+    for j in range(1, NCAP + 1):
+        def dep(X, y, j=j):
+            amt = f"N(INDEX(Inv_D,{j}))" if X == "P" else f"N(INDEX(Inv_BaseV,{j}))"
+            svc = f"INDEX(Inv_Svc{X},{j})"
+            vida = f"N(INDEX(Inv_F,{j}))"
+            s, e = (("1", f"({X}_Inicio-1)") if y == 0 else (f"({X}_Inicio+{12 * (y - 1)})", f"({X}_Inicio+{12 * y - 1})"))
+            return f"IF({vida}=0,0,{amt}/({vida}*12)*MAX(0,MIN({e},{svc}+{vida}*12-1,Fin)-MAX({s},{svc})+1))"
+        lab = (f'=IF(Inversion!$B${ivr(j)}="","Ítem {j}",Inversion!$B${ivr(j)}&" — USD "&FIXED(IF(cu_P=1,N(Inversion!$D${ivr(j)}),N(Inversion!$U${ivr(j)})),0)'
+               f'&" — "&N(Inversion!$F${ivr(j)})&" años")')
+        ln = L(f"c20.i.{j}", lab, ("x", dep), grp=j > VIS_CAP, pub=False)
+        ln["u"] = f'=IF(Inversion!$C${ivr(j)}="","",Inversion!$C${ivr(j)})'
+        lines.append(ln)
+    first, last = "c20.i.1", f"c20.i.{NCAP}"
+    cls = lambda name: (lambda c, R: f'SUMIF($C${R[first]}:$C${R[last]},"{name}",{c}{R[first]}:{c}{R[last]})')
+    lines += [S("Por rubro (como el plan)"),
+              L("c20.maq", "Maquinarias y equipos (incluye despacho)", ("c", cls("Maquinaria")), inB=True),
+              L("c20.inf", "Adecuación de infraestructura", ("c", cls("Infraestructura")), inB=True),
+              L("c20.otr", "Otras inversiones (software, mobiliario y demás)", ("c", cExpr("{c20.tot}-{c20.maq}-{c20.inf}")), inB=True),
+              L("c20.tot", "TOTAL DEPRECIACIÓN", ("c", lambda c, R: f"SUM({c}{R[first]}:{c}{R[last]})"), b=True, inB=True),
+              L("c20.eng", "Depreciación del motor (hoja Calculo)", ("s", "DEP"), pub=False),
+              L("c20.aj", "Ajuste (inversión ejecutada en meses reales)", ("c", cExpr("{c20.eng}-{c20.tot}")), pub=False),
+              L("c20.af", "Activo fijo neto al cierre (valor residual contable)", ("e", "AF"), b=True, tot="last")]
+    cu_sheet("C20 Depreciación", "Cuadro 20 — Depreciación de activo fijo y valor residual", "cuadro 20, pág. 29", lines,
+             ["Depreciación lineal desde el mes de puesta en servicio, según la vida útil de cada ítem (hoja Inversion). Rubro = clase del ítem.",
+              f"Ítems {VIS_CAP + 1} a {NCAP} agrupados."])
+
+
+# ---------------------------------------------------------------------------- RRHH
+def build_rrhh():
+    prr = lambda j: CO["per_first"] + j - 1
+    lab = lambda j: f'=IF(Costos!$B${prr(j)}="","Puesto {j}",Costos!$B${prr(j)}&" ("&Costos!$C${prr(j)}&")")'
+    lines = [S("A. Dotación por puesto (personas; supuestos anuales de la hoja Costos)")]
+    for j in range(1, NPER + 1):
+        lines.append(L(f"rh.d.{j}", lab(j), ("x", lambda X, y, j=j: f"N(INDEX(Dot_{OV_(X)},{j},{y}))"), NF_INT, u="pers.", tot=None, y0=False,
+                       grp=j > VIS_PER, pub=False))
+    lines.append(S("B. Costo anual base por puesto (salario × 12 × dotación ÷ TC; sin cargas ni alimentación)"))
+    for j in range(1, NPER + 1):
+        def cost(X, y, j=j):
+            return (f"N(INDEX(Sal_{OV_(X)},{j}))*INDEX(IdxSal_{OV_(X)},1,{y})*12*N(INDEX(Dot_{OV_(X)},{j},{y}))"
+                    f'*IF(INDEX(Per_Mon,{j})="PYG",1/{TCY(X, y)},1)')
+        lines.append(L(f"rh.c.{j}", lab(j), ("x", cost), y0=False, grp=j > VIS_PER, pub=False))
+    avg = lambda k: (lambda X, y: f"IF({CN(X, y)}=0,0,{CS(X, k + '_n', y)}/{CN(X, y)})")
+    lines += [
+        S("C. Totales por clase (motor: incluye detalle mensual y datos reales)"),
+        L("rh.ndir", "Personal directo (personas, promedio del año)", ("x", avg("dir")), NF_USD2, u="pers.", tot=None),
+        L("rh.nind", "Personal indirecto de producción", ("x", avg("ind")), NF_USD2, u="pers.", tot=None, pub=False),
+        L("rh.nadm", "Personal de administración", ("x", avg("adm")), NF_USD2, u="pers.", tot=None, pub=False),
+        L("rh.nia", "Indirectos y administración (como el plan)", ("c", cSum(["rh.nind", "rh.nadm"])), NF_USD2, u="pers.", tot=None, inB=True),
+        L("rh.ntot", "TOTAL DE PERSONAS", ("c", cSum(["rh.ndir", "rh.nind", "rh.nadm"])), NF_USD2, b=True, u="pers.", tot=None, inB=True),
+        L("rh.cdir", "Salarios del personal directo", ("x", lambda X, y: BASE(X, "dir", y))),
+        L("rh.cind", "Salarios del personal indirecto de producción", ("x", lambda X, y: BASE(X, "ind", y)), pub=False),
+        L("rh.cadm", "Salarios del personal de administración", ("x", lambda X, y: BASE(X, "adm", y)), pub=False),
+        L("rh.cia", "Salarios de indirectos y administración (como el plan)", ("c", cSum(["rh.cind", "rh.cadm"])), inB=True),
+        L("rh.ctot", "TOTAL SALARIOS (costo base anual)", ("c", cSum(["rh.cdir", "rh.cind", "rh.cadm"])), b=True, inB=True),
+        L("rh.car", "Prestaciones sociales", ("x", lambda X, y: f"({BASE(X, 'dir', y)}+{BASE(X, 'ind', y)}+{BASE(X, 'adm', y)})*{X}_Cargas"), pub=False),
+        L("rh.ali", "Alimentación", ("x", lambda X, y: f"{ALIM(X, 'dir', y)}+{ALIM(X, 'ind', y)}+{ALIM(X, 'adm', y)}"), pub=False),
+        L("rh.tot", "COSTO TOTAL DE PERSONAL", ("x", lambda X, y: CSUM(X, y, ["dir_f", "ind_f", "adm_f"])), b=True, pub=False),
+    ]
+    cu_sheet("RRHH", "Recursos humanos involucrados en el proyecto", "pág. 30-34", lines,
+             ["A y B: por puesto, con los supuestos anuales. C: totales del motor (pueden diferir de B si se cargó detalle mensual o datos reales).",
+              f"Puestos {VIS_PER + 1} a {NPER} agrupados. Salarios en Gs convertidos con el TC de cada año."])
+
+
+# ---------------------------------------------------------------------------- C01 inversión (no anual)
+def build_c01():
+    ws = WS["C01 Inversión"]
+    cu_head(ws, "C01 Inversión", "Cuadro 1 — Inversión y financiamiento; cuadros 2, 5 y 6 — detalle de inversiones", "cuadros 1, 2, 5 y 6, pág. 11-13")
+    widths(ws, {"B": 50, "C": 15, "D": 15, "E": 12, "F": 10, "G": 15, "H": 15, "I": 80})
+    ivf, ivl = IV["first"], IV["last"]
+    cls_rng = f"Inversion!$C${ivf}:$C${ivl}"
+    amt = lambda X: "Inv_D" if X == "P" else "Inv_BaseV"
+    capt = lambda X: f"Calculo!$E${ROW[X + '.CAPEX']}"
+    vv = lambda fn: f"=IF(cu_P=1,{fn('P')},{fn('V')})"
+    r = 5
+    section(ws, r, "Cuadro 1 — Inversión y financiamiento (USD)", 9); r += 1
+    header(ws, r, ["", "Concepto", "", "Modelo (versión)", "", "", "Plan publicado", "Diferencia", "Explicación de la diferencia"], 1, 24); r += 1
+    R = {}
+    rows = [
+        ("c01.inf", "Adecuaciones de infraestructura", vv(lambda X: f'SUMIF({cls_rng},"Infraestructura",{amt(X)})'), False),
+        ("c01.maq", "Maquinaria y equipos (CIF + gastos de despacho)", vv(lambda X: f'SUMIF({cls_rng},"Maquinaria",{amt(X)})'), False),
+        ("c01.otr", "Otras inversiones (software, mobiliario y demás)", None, False),
+        ("c01.fija", "TOTAL INVERSIÓN FIJA", vv(capt), True),
+        ("c01.ini", "   pagada hasta el año 1 de operación (inversión inicial)", vv(lambda X: f"{CS(X, 'CAPEX', 0)}+{CS(X, 'CAPEX', 1)}"), False),
+        ("c01.post", "   pagada desde el año 2", None, False),
+        ("c01.cop", "CAPITAL OPERATIVO INICIAL (capital de trabajo neto al cierre del año 1)", vv(lambda X: CE(X, "ctn", 1)), True),
+        ("c01.tini", "TOTAL DE LA INVERSIÓN INICIAL (inversión inicial + capital operativo)", None, True),
+        ("c01.ap", "Aportes de socios (total)", vv(lambda X: f"Calculo!$E${ROW[X + '.APORTE']}"), False),
+        ("c01.pr", "Préstamos bancarios (total desembolsado)", vv(lambda X: f"Calculo!$E${ROW[X + '.DESL']}"), False),
+        ("c01.fue", "TOTAL FUENTES", None, True),
+        ("c01.pap", "   % aportes de socios", None, False),
+        ("c01.ppr", "   % préstamos", None, False),
+    ]
+    for k, *_ in rows:
+        R[k] = r
+        r += 1
+    r = R["c01.inf"]
+    derived = {"c01.otr": lambda c: f"={c}{R['c01.fija']}-{c}{R['c01.inf']}-{c}{R['c01.maq']}",
+               "c01.post": lambda c: f"={c}{R['c01.fija']}-{c}{R['c01.ini']}",
+               "c01.tini": lambda c: f"={c}{R['c01.ini']}+{c}{R['c01.cop']}",
+               "c01.fue": lambda c: f"={c}{R['c01.ap']}+{c}{R['c01.pr']}",
+               "c01.pap": lambda c: f'=IF(N({c}{R["c01.fue"]})=0,"",{c}{R["c01.ap"]}/{c}{R["c01.fue"]})',
+               "c01.ppr": lambda c: f'=IF(N({c}{R["c01.fue"]})=0,"",{c}{R["c01.pr"]}/{c}{R["c01.fue"]})'}
+    for k, lab, f, bold in rows:
+        fmt = NF_PCT if k in ("c01.pap", "c01.ppr") else NF_USD
+        put(ws, r, 1, k, font=F_S)
+        put(ws, r, 2, lab, font=F_B if bold else F, fill=FL_TOT if bold else None)
+        put(ws, r, 4, f if f else derived[k]("D"), fmt=fmt, font=F_B, fill=FL_V)
+        if k in derived:
+            first = {"c01.otr": "c01.fija", "c01.post": "c01.fija", "c01.tini": "c01.ini", "c01.fue": "c01.ap", "c01.pap": "c01.fue", "c01.ppr": "c01.fue"}[k]
+            put(ws, r, 7, f'=IF(G{R[first]}="","",{derived[k]("G")[1:]})', fmt=fmt, fill=FL_P)
+        else:
+            inp(ws, r, 7, PLAN.get(k), fmt)
+        put(ws, r, 8, f'=IF(AND(ISNUMBER(D{r}),ISNUMBER(G{r})),D{r}-G{r},"")', fmt=fmt)
+        put(ws, r, 9, f'=IF(NOT(ISNUMBER(H{r})),"",IF(ABS(H{r})<{TOL.get(fmt, 1)},"Sin diferencia","'
+            + (NOTA.get(k) or "Diferencia a explicar").replace('"', "'") + '"))', font=F_S)
+        r += 1
+    r += 1
+    section(ws, r, "Cuadros 2, 5 y 6 — Detalle de inversiones por ítem (hoja Inversion)", 9); r += 1
+    header(ws, r, ["#", "Ítem", "Clase", "Modelo (versión)", "Mes de pago", "Vida útil", "Plan publicado", "Diferencia", "Explicación de la diferencia"], 1, 24)
+    r += 1
+    fi = r
+    items = PLAN.get("c01.items", [])
+    for j in range(1, NCAP + 1):
+        q = ivf + j - 1
+        put(ws, r, 1, j, font=F_S)
+        put(ws, r, 2, f'=IF(Inversion!$B${q}="","",Inversion!$B${q})', font=F_LINK)
+        put(ws, r, 3, f'=IF(Inversion!$C${q}="","",Inversion!$C${q})', font=F_LINK)
+        put(ws, r, 4, f"=IF(cu_P=1,N(Inversion!$D${q}),N(Inversion!$U${q}))", fmt=NF_USD, fill=FL_V)
+        put(ws, r, 5, f'=IF(Inversion!$B${q}="","",IF(cu_P=1,Inversion!$S${q},Inversion!$Q${q}))', fmt=NF_N)
+        put(ws, r, 6, f'=IF(Inversion!$B${q}="","",N(Inversion!$F${q}))', fmt=NF_N)
+        inp(ws, r, 7, items[j - 1] if j - 1 < len(items) else None, NF_USD)
+        put(ws, r, 8, f'=IF(ISNUMBER(G{r}),D{r}-G{r},"")', fmt=NF_USD)
+        put(ws, r, 9, f'=IF(NOT(ISNUMBER(H{r})),"",IF(ABS(H{r})<2,"Sin diferencia","'
+            + ((D.get("plan_notas_items") or {}).get(j) or NOTA.get("c01.item") or "Diferencia a explicar").replace('"', "'") + '"))', font=F_S)
+        if j > VIS_CAP:
+            ws.row_dimensions[r].outlineLevel = 1
+            ws.row_dimensions[r].hidden = True
+        r += 1
+    put(ws, r, 2, "TOTAL", font=F_B, fill=FL_TOT)
+    for c in "DGH":
+        put(ws, r, ord(c) - 64, f"=SUM({c}{fi}:{c}{r - 1})", fmt=NF_USD, font=F_B, fill=FL_TOT)
+    r += 2
+    section(ws, r, "Notas", 9); r += 1
+    for t in ["Modelo: presupuesto = monto del ítem; vigente = base depreciable vigente (ejecutado + comprometido + por contratar con el escenario).",
+              "Mes de pago: presupuesto = mes de pago; vigente = mes de pago pendiente usado. El plan registra la inversión inicial en el año 0; "
+              "si el modelo empieza a operar en el mes 1, la paga en el año 1.",
+              f"Ítems {VIS_CAP + 1} a {NCAP} agrupados."]:
+        put(ws, r, 2, t, font=F_S)
+        r += 1
+    ws.freeze_panes = "C7"
+    CUR_ROWS["C01 Inversión"] = {"A": R}
+
+
+# ---------------------------------------------------------------------------- índice
+def build_cuadros_indice():
+    ws = WS["Cuadros"]
+    ws.sheet_view.showGridLines = False
+    widths(ws, {"A": 3, "B": 58, "C": 18, "D": 18, "E": 16, "F": 12, "G": 90})
+    put(ws, 1, 1, "Cuadros financieros — misma estructura que el plan de negocio", font=F_T)
+    put(ws, 2, 1, '="Plan de referencia: "&IF(n_Version="","(sin versión)",n_Version)&"   |   Cada hoja tiene el modelo (A), el plan publicado (B) y la diferencia (C)."', font=F_S)
+    r = 4
+    section(ws, r, "1. Versión que muestran los cuadros", 7); r += 1
+    put(ws, r, 2, "Versión", font=F_B)
+    inp(ws, r, 3, "Vigente")
+    dv(ws, f"C{r}", ["Vigente", "Presupuesto original"])
+    nm("cu_Ver", "Cuadros", f"C{r}")
+    put(ws, r, 4, "Vigente = real hasta el último cierre + proyección con el escenario elegido. Presupuesto original = plan aprobado con la metodología del modelo.",
+        font=F_S)
+    r += 1
+    put(ws, r, 2, "Indicador de versión (1 = presupuesto original)", font=F_S)
+    put(ws, r, 3, '=IF(cu_Ver="Presupuesto original",1,0)', fmt=NF_N, font=F_S)
+    nm("cu_P", "Cuadros", f"C{r}")
+    r += 1
+    put(ws, r, 2, "Escenario / último mes cerrado")
+    put(ws, r, 3, '=n_Escenario&" / "&IF(Corte=0,"sin reales","mes "&Corte)', font=F_B)
+    r += 2
+    section(ws, r, "2. Índice de cuadros", 7); r += 1
+    header(ws, r, ["", "Hoja", "Cuadros del plan", "Páginas del plan", "Ir", "", "Contenido"], 1, 24); r += 1
+    for hoja, cuad, cont, pag in CU_HOJAS:
+        put(ws, r, 2, hoja, font=F_B)
+        put(ws, r, 3, cuad, al=CEN)
+        put(ws, r, 4, pag, al=CEN)
+        put(ws, r, 5, f'=HYPERLINK("#\'{hoja}\'!A1","Abrir")', font=Font(name=FONT, size=9, color="0563C1", underline="single"), al=CEN)
+        put(ws, r, 7, cont)
+        r += 1
+    r += 1
+    section(ws, r, "3. Resumen: modelo frente al plan publicado", 7); r += 1
+    header(ws, r, ["", "Concepto", "Modelo", "Plan publicado", "Diferencia", "Diferencia %", "Explicación"], 1, 24); r += 1
+    ref = lambda hoja, blk, k, col: f"'{hoja}'!${col}${CUR_ROWS[hoja][blk][k]}"
+    expl = lambda rr, fmt, nk: (f'=IF(NOT(ISNUMBER(E{rr})),"",IF(ABS(E{rr})<{TOL.get(fmt, 1)},"Sin diferencia","'
+                                + (NOTA.get(nk) or "Diferencia a explicar").replace('"', "'") + '"))')
+    res = [
+        ("Inversión fija inicial (pagada hasta el año 1)", ("C01 Inversión", "c01.ini", "D", "G"), NF_USD, "s_ini"),
+        ("Capital operativo inicial (capital de trabajo neto del año 1)", ("C01 Inversión", "c01.cop", "D", "G"), NF_USD, "s_cop"),
+        ("Ventas de los 10 años", ("C08 Ingresos", "c08.vtas", TC_, TC_), NF_USD, "s_vtas"),
+        ("Costos totales de los 10 años", ("C10a Costos", "c10.tot", TC_, TC_), NF_USD, "s_cost"),
+        ("EBITDA de los 10 años", ("C15 Resultados", "c15.ebitda", TC_, TC_), NF_USD, "s_ebitda"),
+        ("Utilidad neta de los 10 años", ("C15 Resultados", "c15.ni", TC_, TC_), NF_USD, "s_ni"),
+        ("Capital de trabajo neto al cierre del año 10", ("C16 Capital trabajo", "c16.ctn", YC(CUY), YC(CUY)), NF_USD, "s_ctn"),
+        ("Caja al cierre del año 10", ("C18 Fondos", "c18.sal", YC(CUY), YC(CUY)), NF_USD, "s_caja"),
+        ("Punto de equilibrio del año 1 (unidades)", ("C17 Equilibrio", "c17.peu", YC(1), YC(1)), NF_INT, "s_pe"),
+        ("Personal total del año 1 (personas)", ("RRHH", "rh.ntot", YC(1), YC(1)), NF_USD2, "s_pers"),
+    ]
+    for lab, (hoja, k, cm, cp), fmt, nk in res:
+        put(ws, r, 2, lab)
+        if hoja == "C01 Inversión":
+            mref, pref = f"'{hoja}'!$D${CUR_ROWS[hoja]['A'][k]}", f"'{hoja}'!$G${CUR_ROWS[hoja]['A'][k]}"
+        else:
+            mref, pref = ref(hoja, "A", k, cm), ref(hoja, "B", k, cp)
+        put(ws, r, 3, f"={mref}", fmt=fmt, font=F_B, fill=FL_V)
+        put(ws, r, 4, f'=IF(ISNUMBER({pref}),{pref},"")', fmt=fmt, fill=FL_P)
+        put(ws, r, 5, f'=IF(AND(ISNUMBER(C{r}),ISNUMBER(D{r})),C{r}-D{r},"")', fmt=fmt)
+        put(ws, r, 6, f'=IF(AND(ISNUMBER(E{r}),N(D{r})<>0),E{r}/D{r},"")', fmt=NF_PCT)
+        put(ws, r, 7, expl(r, fmt, nk), font=F_S)
+        r += 1
+    I = CUR_ROWS["C19 VAN-TIR"]["I"]
+    for lab, k, fmt, nk in [("VAN — método del plan (flujo de beneficios netos)", "i_van", NF_USD, "s_van"), ("TIR — método del plan", "i_tir", NF_PCT2, "s_tir"),
+                            ("Payback — método del plan (años)", "i_pb", NF_N, "s_pb"), ("VAN del proyecto — criterio del modelo (FCFF)", "i_vanp", NF_USD, "s_vanp"),
+                            ("VAN de los socios — criterio del modelo", "i_vane", NF_USD, "s_vane")]:
+        put(ws, r, 2, lab)
+        put(ws, r, 3, f"='C19 VAN-TIR'!$D${I[k]}", fmt=fmt, font=F_B, fill=FL_V)
+        put(ws, r, 4, f"=IF(ISNUMBER('C19 VAN-TIR'!$E${I[k]}),'C19 VAN-TIR'!$E${I[k]},\"\")", fmt=fmt, fill=FL_P)
+        put(ws, r, 5, f'=IF(AND(ISNUMBER(C{r}),ISNUMBER(D{r})),C{r}-D{r},"")', fmt=fmt)
+        put(ws, r, 6, f'=IF(AND(ISNUMBER(E{r}),N(D{r})<>0),E{r}/D{r},"")', fmt=NF_PCT)
+        put(ws, r, 7, expl(r, fmt, nk) if nk not in ("s_vanp", "s_vane") else NOTA.get(nk, ""), font=F_S)
+        r += 1
+    r += 1
+    section(ws, r, "4. Diferencias de metodología conocidas (editable)", 7); r += 1
+    notas = D.get("plan_notas", [])
+    for i in range(12):
+        put(ws, r, 2, f"{i + 1}.", font=F_S)
+        inp(ws, r, 3, notas[i] if i < len(notas) else None)
+        ws.merge_cells(start_row=r, start_column=3, end_row=r, end_column=7)
+        r += 1
+    r += 1
+    section(ws, r, "5. Cómo leer los cuadros", 7); r += 1
+    for t in ["Años: año 0 = meses de implantación antes del inicio de operación; años 1 a 10 = años de operación (como el plan). Total = suma de los años.",
+              "Bloque A (verde): modelo en la versión elegida arriba. Bloque B (naranja): cifras del plan publicado, para cargar a mano (Ecostar ya está cargado).",
+              "Bloque C: diferencia modelo − plan, con la explicación de cada línea. Una diferencia sin explicación es un punto a revisar.",
+              "Las filas de productos, puestos, costos fijos e ítems sin uso están agrupadas: el botón + de la izquierda las muestra.",
+              "Las filas «Ajuste por datos reales» separan lo que viene de la hoja Reales o de Detalle_24m; sin reales ni detalle mensual deben ser 0."]:
+        put(ws, r, 2, t, font=F_S)
+        ws.merge_cells(start_row=r, start_column=2, end_row=r, end_column=7)
+        r += 1
+    ws.freeze_panes = "A4"
+
+
+def build_cuadros():
+    build_c07()
+    build_c08()
+    build_c09()
+    build_c10a()
+    build_c10b()
+    build_c11()
+    build_c13()
+    build_c15()
+    build_c16()
+    build_c17()
+    build_c18()
+    build_c19()
+    build_c20()
+    build_rrhh()
+    build_c01()
+    build_cuadros_indice()
+
+
 # ============================================================================ MAIN
 def marcar_modificados():
     """Formato condicional: celdas vigentes distintas del presupuesto resaltadas en amarillo/azul."""
@@ -1892,11 +2866,12 @@ def main():
     build_proy()
     build_control()
     build_guia()
+    build_cuadros()
     marcar_modificados()
     tabs = {"Inicio": "1F3864", "Guia_Carga": "00B0F0", "Detalle_24m": "FFC000", "Proyeccion_24m": "548235", "Supuestos": "FFC000", "Productos": "FFC000", "Costos": "FFC000", "Inversion": "FFC000", "Reales": "FFC000",
             "Calculo": "7F7F7F", "Resultados": "548235", "Control": "C00000"}
     for s in SHEETS:
-        WS[s].sheet_properties.tabColor = tabs[s]
+        WS[s].sheet_properties.tabColor = tabs.get(s, "2F5597")
         WS[s].sheet_view.zoomScale = 90
     wb.calculation.fullCalcOnLoad = True
     wb.active = 0

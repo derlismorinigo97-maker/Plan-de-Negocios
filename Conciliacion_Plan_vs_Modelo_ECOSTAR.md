@@ -18,7 +18,10 @@ Fecha: 27/10/2026.
    - materia prima con el 1% acumulativo que indica el texto del plan (−361 mil).
 4. **El resultado neto es USD 1,19 M menor** (−7,5%): la diferencia del EBITDA, más 149 mil de depreciación adicional (desde el año 1 y sobre el CAPEX del año 2).
 5. **El capital de trabajo del modelo es mayor**: 52 mil más en el año 1 y 519 mil más en el año 10. El modelo valoriza las cuentas por cobrar a precio de venta; el plan, a costo. Esto afecta la necesidad de fondos, no el EBITDA.
-6. **VAN y TIR no son comparables.** El plan mezcla flujos del proyecto y del accionista. La versión anterior del modelo (v1) reproduce exactamente el VAN publicado (4.588.736), lo que confirma que la base de datos es la misma.
+6. **VAN y TIR no son comparables directamente.** El plan mezcla flujos del proyecto y del accionista. La versión anterior del modelo (v1) reproduce exactamente el VAN publicado (4.588.736), lo que confirma que la base de datos es la misma.
+7. **Con el método del plan, el modelo da VAN 4.177.576 y TIR 23,99%** (actualización v7, cuadro 19): 411 mil menos que el VAN publicado. El mismo cálculo aplicado a los flujos publicados reproduce el VAN y la TIR del plan (4.588.737 y 22,61%), así que la diferencia es de cifras (EBITDA, capital de trabajo y calendario), no de método. La TIR sube aunque el VAN baja, principalmente porque en el modelo la inversión cae en el año 1 y no en el año 0 (el horizonte entre la inversión y el valor final es un año más corto).
+
+**Desde la v7, el libro muestra esta conciliación cuadro por cuadro:** hoja «Cuadros» (resumen y causas) y una hoja por cuadro del plan (C01 a C20 y RRHH), con el modelo, el plan publicado y la diferencia explicada en cada línea.
 
 **A confirmar con los autores del plan:** el TC usado en la nómina y si el 1% de materia prima es acumulativo también para las cajas. Son las dos diferencias materiales.
 
