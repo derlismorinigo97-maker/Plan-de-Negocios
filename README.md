@@ -3,6 +3,7 @@
 | Archivo | Uso |
 |---|---|
 | `Modelo_Maquila_ECOSTAR_v7.xlsx` | **Versión de trabajo actual**: la v6 más los cuadros con la estructura del plan de negocio (hoja «Cuadros» e índice, y una hoja por cuadro: C01 a C20 y RRHH, con modelo, plan publicado y diferencia explicada). Los contadores de Detalle_24m pasaron al motor. Incluye «Claude Log» (turnos 1 a 21) y «Esp_25Productos». |
+| `Flujo_Caja_Bancario_ECOSTAR.xlsx` | Flujo de caja de 24 meses (nov-26 a oct-28) para el primer crédito de Ecostar: supuestos editables, régimen general hasta la aprobación de la maquila, deuda con CIE, cronograma del préstamo, DSCR y necesidad de capital de trabajo. Lo genera `modelo/flujo_bancario/generar_flujo_bancario.py`. |
 | `Modelo_Maquila_ECOSTAR_v2.xlsx` | Salida directa del generador (misma estructura que la v7, sin las hojas de registro). |
 | `Plantilla_Maquila_Comun.xlsx` | Plantilla vacía para Alianza del Acero y la tercera maquila. |
 | `Informe_Plantilla_Comun_v2.md` | Evaluación de Alianza del Acero, cambios v1 → v2, resultados y guía de carga. |
