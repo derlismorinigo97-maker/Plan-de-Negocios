@@ -223,11 +223,11 @@ r += 2
 sec(S, r, "F. Costos fijos mensuales (plan de negocio)", 9)
 r += 1
 hdr(S, r, ["#", "Concepto", "Clase", "Moneda", "Monto mensual", "Crecimiento anual",
-           "IVA no recuperable", "Base imprevistos adm. (1/0)", "Nota"])
+           "IVA incluido en el monto (informativo)", "Base imprevistos adm. (1/0)", "Nota"])
 FIJ = [
     ("Energía eléctrica planta", "Producción", "PYG", 14000000, 0, 0, 0, "Plan. Real jun-oct: ≈ Gs 7,5 M/mes."),
     ("Mantenimiento y reparaciones planta", "Producción", "USD", 2475.67, 0.02, 0, 0, "Plan."),
-    ("Alquiler de nave (Zona Franca Global)", "Administración", "USD", 17006, 0.03, 0.10, 0, "Plan; real ≈ USD 16.000/mes."),
+    ("Alquiler de nave (Zona Franca Global)", "Administración", "USD", 17006, 0.03, 0.10, 0, "3.865 m² × USD 4 + IVA 10% (no recuperable). Real ≈ USD 16.000/mes."),
     ("Expensas", "Administración", "USD", 773, 0.03, 0, 0, "Plan."),
     ("Agua, comunicaciones y electricidad adm.", "Administración", "PYG", 750000, 0, 0, 1, "Plan."),
     ("Mantenimiento y reparaciones adm.", "Administración", "PYG", 3000000, 0, 0, 1, "Plan."),
@@ -490,7 +490,7 @@ line("pind", "Personal indirecto de producción", lambda t, c: "=" + pers("Indir
 
 def fij(clase, c, base=False):
     b = "*Fi_Base" if base else ""
-    return (f"SUMPRODUCT((Fi_Clase=\"{clase}\")*Fi_Monto*(1+Fi_Crec)^({R('y', c)}-1)*(1+Fi_IVA){b}*"
+    return (f"SUMPRODUCT((Fi_Clase=\"{clase}\")*Fi_Monto*(1+Fi_Crec)^({R('y', c)}-1){b}*"
             f"((Fi_Mon=\"PYG\")/{R('tc', c)}+(Fi_Mon=\"USD\")))")
 
 
